@@ -1,9 +1,9 @@
 ---
-title: "EstimateFossilLMA"
+title: "Estimate Fossil LMA"
 output:
+  word_document: default
   html_document: default
   pdf_document: default
-  word_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -26,9 +26,9 @@ require(magrittr)
 
 First, we need to create the fossil data for prediction.
 ```{r}
-florissant_fossil_int <- readRDS("~/Documents/BEIN data R/data/processed/04_florissant_fossil_clean.rds")
-renova_fossil_int <- readRDS("~/Documents/BEIN data R/data/processed/04_renova_fossil_clean.rds")
-bridgecreek_fossil_int <- readRDS("~/Documents/BEIN data R/data/processed/04_bridgecreek_fossil_clean.rds")
+florissant_fossil_int <- readRDS("./data/processed/04_florissant_fossil_clean.rds")
+renova_fossil_int <- readRDS("./data/processed/04_renova_fossil_clean.rds")
+bridgecreek_fossil_int <- readRDS("./data/processed/04_bridgecreek_fossil_clean.rds")
 
 fossil_comb <- rbind(florissant_fossil_int,renova_fossil_int,bridgecreek_fossil_int)
 fossil_gen <- fossil_comb$Genus
@@ -59,7 +59,7 @@ colnames(all_fossil)[colnames(all_fossil)=="LMA (g/m^2)"] <- "log_LMA"
 
 Next, we have to apply a fit linear mixed-effects model. By using the lmer function in the lme4 package, we are able to fit the model to the selected data. 
 ```{r mixedeffects}
-royer_tax_full <- readRDS("~/Documents/BEIN data R/data/processed/07_lm4_royer")
+royer_tax_full <- readRDS("./data/processed/07_lm4_royer")
 royer_tax_na_omit<-na.omit(royer_tax_full)
 
 royer_lme <- lmer(log_lma~royer_tax_full$log_pet_leafarea + (1|order/scrubbed_family/scrubbed_genus), data=royer_tax_full)
@@ -141,7 +141,7 @@ extant_top5_fossil_tax <- subset(royer_tax_na_omit, (royer_tax_na_omit$scrubbed_
 extant_over10_fossil_tax <- subset(royer_tax_na_omit, (royer_tax_na_omit$scrubbed_family %in% royer_tax_over10$scrubbed_family))
 
 ##Create royer_data_split so genus and species are separated
-royer_data<-read.csv("~/Documents/BEIN data R/data/raw/royer.data")
+royer_data<-read.csv("./data/raw/royer_data.csv")
 royer_data_split <-
   royer_data %>% separate(binomial, c("genus", "species"))
 royer_data_split <- subset(royer_data_split, royer_data_split$genus %in% extant_over10_fossil_tax$scrubbed_genus)
