@@ -1,0 +1,120 @@
+---
+title: "Petiole and Leaf Area to LMA"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data Prep
+Loading require packages
+```{r}
+require(BIEN)
+require(plyr)
+require(tidyr)
+require(dplyr)
+require(mosaic)
+require(stringr)
+require(lme4)
+require(magrittr)
+```
+
+First, we need to fix the fossil data necessary for prediction. Fossil data is compared to living data in order to come to conclusions when identifying the families of found fossils based off of LMA. The data has previously been adjusted to fix misspelled names, combine observations, and organize all of the information. 
+```{r}
+florissant_fossil_int <- readRDS("../data/processed/04_florissant_fossil_clean.rds")
+renova_fossil_int <- readRDS("../data/processed/04_renova_fossil_clean.rds")
+bridgecreek_fossil_int <- readRDS("../data/processed/04_bridgecreek_fossil_clean.rds")
+
+fossil_comb <- rbind(florissant_fossil_int,renova_fossil_int,bridgecreek_fossil_int)
+fossil_gen <- fossil_comb$Genus
+fossil_gen <- unique(fossil_gen)
+fossil_gen_df <- as.data.frame(fossil_gen)
+fossil_tax <- BIEN_taxonomy_genus(fossil_gen)
+fossil_tax <- fossil_tax[-c(1,7:9)]
+fossil_tax <- unique(fossil_tax)
+
+all_fossil <- rbind(florissant_fossil_int, renova_fossil_int, bridgecreek_fossil_int)
+all_fossil$binomial <- paste(all_fossil$Genus, all_fossil$species)
+all_fossil$binomial <- str_replace_all(all_fossil$binomial,"\\s+","_")
+all_fossil <- all_fossil[-c(1,2)]
+```
+
+Next we must separate genera and species from one another so they can be analyzed separately and create a clean fossil data set. 
+```{r}
+ all_fossil_LMEpred <- all_fossil %>%
+  separate(binomial, 
+    c("scrubbed_genus", "species"))
+all_fossil_royer_pred <- left_join(all_fossil_LMEpred, fossil_tax, by = "scrubbed_genus")
+
+all_fossil_royer_pred <- na.omit(all_fossil_royer_pred)
+all_fossil_royer_pred <- unique(all_fossil_royer_pred)
+
+colnames(all_fossil)[colnames(all_fossil)=="Petiole Width (cm)"] <- "avg_petiole_width"
+colnames(all_fossil)[colnames(all_fossil)=="Leaf Area (cm^2)"] <- "avg_LA"
+colnames(all_fossil)[colnames(all_fossil)=="PW^2/A"] <- "log_pet_leafarea"
+colnames(all_fossil)[colnames(all_fossil)=="LMA (g/m^2)"] <- "log_LMA"
+```
+
+
+We then create a leaf mass prediction and model using family as a factor. 
+```{r}
+royer_tax_full <- readRDS("../data/processed/07_lm4_royer")
+royer_tax_na_omit<-na.omit(royer_tax_full)
+
+royer_lme <- lmer(log_lma~royer_tax_full$log_pet_leafarea + (1|order/scrubbed_family/scrubbed_genus), data=royer_tax_full)
+royer_lme_sum<- summary(royer_lme)
+
+
+royer_pred <- as.data.frame(predict(royer_lme, newdata = all_fossil_royer_pred, allow.new.levels= TRUE))
+
+royer_fossil_dropped <-   all_fossil_royer_pred %>% 
+  filter(!grepl('Cercidiphyllaceae', scrubbed_family)) %>%
+  filter(!grepl('Smilacaceae', scrubbed_family)) %>%
+  filter(!grepl('Staphyleaceae', scrubbed_family))
+
+royer_fossil_dropped <-   all_fossil_royer_pred %>% 
+  filter(!grepl('Cercidiphyllaceae', scrubbed_family)) %>%
+  filter(!grepl('Smilacaceae', scrubbed_family)) %>%
+  filter(!grepl('Staphyleaceae', scrubbed_family))
+
+royer_tax_fam_count <- royer_tax_full%>% 
+  group_by(scrubbed_family) %>% 
+  tally() %>%
+  filter(!grepl('Unknown', scrubbed_family))
+
+royer_tax_count <- left_join(royer_tax_full, royer_tax_fam_count, by="scrubbed_family")
+
+```
+
+###Mixed Effects Modeling
+Determining the top 5 extant families with the most samples, and the top 10 families respectively. 
+```{r}
+royer_tax_top5 <- subset(royer_tax_count, as.numeric(n)>23)
+royer_tax_over10 <- subset(royer_tax_count, as.numeric(n)>9)
+```
+
+Creating royer_lmfam_top5 and royer_lm_top5,the linear models for comparing log lma and contains predictions for log(lma) for 5 fossil famlies Ericaceae, Fabaceae, Fagceae, Myrtaceae, and Proteaceae
+```{r}
+royer_lmfam_top5 <- lm(log_lma~log_pet_leafarea, data = royer_tax_top5)
+pred_lmfam_top5 <-  as.data.frame(predict(royer_lmfam_top5, interval="prediction"))
+royer_lmfam_top5_bound <-  cbind(royer_tax_top5, pred_lmfam_top5)
+```
+
+Plotting log_lma vs log(petiole^2/leafarea) for the top 5 families
+```{r}
+ggplot(royer_lmfam_top5_bound, aes(log_pet_leafarea, log_lma))+
+  aes(color=royer_lmfam_top5_bound$scrubbed_family)+
+  geom_point() +
+  geom_smooth(method=lm, se=TRUE)+
+  labs(x="log(petiole^2/leafarea)")+
+  labs(y="log(lma)")+
+  labs(color = "Family")
+
+ggplot(royer_lmfam_top5_bound, aes(log_pet_leafarea, log_lma))+
+  geom_point() +
+  geom_smooth(method=lm, se=TRUE)+
+  labs(x="log(petiole^2/leafarea)")+
+  labs(y="log(lma)")+
+  labs(color = "Family")
+```

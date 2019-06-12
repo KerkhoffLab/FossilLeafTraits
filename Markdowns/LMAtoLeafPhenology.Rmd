@@ -1,0 +1,119 @@
+---
+title: "LMA to Leaf Phenology"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data Prep
+Loading require packages for organizing and analyzing data. 
+```{r}
+require(BIEN)
+require(plyr)
+require(tidyr)
+require(dplyr)
+require(mosaic)
+require(stringr)
+require(lme4)
+require(magrittr)
+```
+
+## Mixed-Effects Modeling
+
+First, we need to fix the fossil data necessary for prediction. Fossil data is compared to living data in order to come to conclusions when identifying the families of found fossils based off of LMA. The data has previously been adjusted to fix misspelled names, combine observations, and organize all of the information. 
+```{r}
+florissant_fossil_int <- readRDS("./data/processed/04_florissant_fossil_clean.rds")
+renova_fossil_int <- readRDS("./data/processed/04_renova_fossil_clean.rds")
+bridgecreek_fossil_int <- readRDS("./data/processed/04_bridgecreek_fossil_clean.rds")
+
+fossil_comb <- rbind(florissant_fossil_int,renova_fossil_int,bridgecreek_fossil_int)
+fossil_gen <- fossil_comb$Genus
+fossil_gen <- unique(fossil_gen)
+fossil_gen_df <- as.data.frame(fossil_gen)
+fossil_tax <- BIEN_taxonomy_genus(fossil_gen)
+fossil_tax <- fossil_tax[-c(1,7:9)]
+fossil_tax <- unique(fossil_tax)
+
+all_fossil <- rbind(florissant_fossil_int, renova_fossil_int, bridgecreek_fossil_int)
+all_fossil$binomial <- paste(all_fossil$Genus, all_fossil$species)
+all_fossil$binomial <- str_replace_all(all_fossil$binomial,"\\s+","_")
+all_fossil <- all_fossil[-c(1,2)]
+```
+
+Next we must separate genera and species from one another so they can be analyzed separately and create a clean fossil data set. 
+```{r}
+ all_fossil_LMEpred <- all_fossil %>%
+  separate(binomial, 
+    c("scrubbed_genus", "species"))
+all_fossil_royer_pred <- left_join(all_fossil_LMEpred, fossil_tax, by = "scrubbed_genus")
+
+all_fossil_royer_pred <- na.omit(all_fossil_royer_pred)
+all_fossil_royer_pred <- unique(all_fossil_royer_pred)
+
+colnames(all_fossil)[colnames(all_fossil)=="Petiole Width (cm)"] <- "avg_petiole_width"
+colnames(all_fossil)[colnames(all_fossil)=="Leaf Area (cm^2)"] <- "avg_LA"
+colnames(all_fossil)[colnames(all_fossil)=="PW^2/A"] <- "log_pet_leafarea"
+colnames(all_fossil)[colnames(all_fossil)=="LMA (g/m^2)"] <- "log_LMA"
+```
+
+We then apply a fit linear mixed-effects model. By using the lmer function in the lme4 package, we are able to fit the model to the selected data. 
+```{r mixedeffects}
+royer_tax_full <- readRDS("./data/processed/07_lm4_royer")
+royer_tax_na_omit<-na.omit(royer_tax_full)
+
+royer_lme <- lmer(log_lma~royer_tax_full$log_pet_leafarea + (1|order/scrubbed_family/scrubbed_genus), data=royer_tax_full)
+royer_lme_sum<- summary(royer_lme)
+
+royer_pred <- as.data.frame(predict(royer_lme, newdata = all_fossil_royer_pred, allow.new.levels= TRUE))
+```
+
+###Logistic Regression
+We create estimates of the top 5 fossil families and 
+```{r}
+###Create sets so we can determine the top 5 extant families with the most samples, and the top 10 families respecitively
+
+##Creation of fossil esitmates of top 5 fossil families
+fossil_top5 <- royer_fossil_dropped%>% 
+  group_by( scrubbed_family) %>% 
+  tally()%>%
+  filter(!grepl('Unknown', scrubbed_family))
+fossil_top5 <- left_join(fossil_top5, royer_fossil_dropped, by="scrubbed_family")
+fossil_top5 <- subset(fossil_top5, as.numeric(n)>22)
+
+#Creation of extant off of the five top families
+fossil_top5_tax <- as.data.frame(unique(fossil_top5$scrubbed_family))
+extant_top5_fossil_tax <- subset(royer_tax_na_omit, (royer_tax_na_omit$scrubbed_family %in% fossil_top5_tax))
+
+#creation of fossils that are in all extant families with more than 10 observations
+extant_over10_fossil_tax <- subset(royer_tax_na_omit, (royer_tax_na_omit$scrubbed_family %in% royer_tax_over10$scrubbed_family))
+
+##Create royer_data_split so genus and species are separated in royer dataset
+royer_data<-read.csv("./data/raw/royer_data.csv")
+royer_data_split <-
+  royer_data %>% separate(binomial, c("genus", "species"))
+royer_data_split <- subset(royer_data_split, royer_data_split$genus %in% extant_over10_fossil_tax$scrubbed_genus)
+royer_data_split <- subset(royer_data_split, royer_data_split$species %in% extant_over10_fossil_tax$species)
+```
+
+Logistic regression predictions for phenology of observations.
+```{r}
+royer_data_split <- unique(royer_data_split)
+colnames(royer_data_split)[colnames(royer_data_split)=="leaf_area"] <- "avg_LA"
+glm_pred_data <- left_join(extant_over10_fossil_tax, royer_data_split, by = "avg_LA")
+glm_pred_data <- na.omit(glm_pred_data)
+glm_pred_data <- unique(glm_pred_data)
+```
+
+Lastly, we create two plots, the first 
+
+```{r}
+ggplot(glm_pred_data, aes(log_lma, phenology))+ 
+  geom_point() + 
+  stat_smooth(method="glm", method.args=list(family="binomial"), se=FALSE)
+
+ggplot(glm_pred_data, aes(log_lma, phenology, group=(scrubbed_family), color=scrubbed_family)) + 
+  geom_point() + 
+  stat_smooth(method="glm", method.args=list(family="binomial"), se=FALSE)
+```
