@@ -12,7 +12,7 @@ Loading require packages
 ```{r}
 require(BIEN)
 require(plyr)
-require(tidyr)
+require(tidyr) 
 require(dplyr)
 require(mosaic)
 require(stringr)
@@ -40,7 +40,7 @@ all_fossil$binomial <- str_replace_all(all_fossil$binomial,"\\s+","_")
 all_fossil <- all_fossil[-c(1,2)]
 ```
 
-Next we must separate genera and species from one another so they can be analyzed separately and create a clean fossil data set. 
+In the original data, species and genera are under 'binomial' and are presented as 'species_genus'. We must separate genera and species from one another so they can be analyzed separately.
 ```{r}
  all_fossil_LMEpred <- all_fossil %>%
   separate(binomial, 
@@ -57,7 +57,7 @@ colnames(all_fossil)[colnames(all_fossil)=="LMA (g/m^2)"] <- "log_LMA"
 ```
 
 
-We then create a leaf mass prediction and model using family as a factor. 
+We first get rid of observations containing "na". Then, we create a leaf mass prediction and model using family as a factor. 
 ```{r}
 royer_tax_full <- readRDS("../data/processed/07_lm4_royer")
 royer_tax_na_omit<-na.omit(royer_tax_full)
@@ -67,16 +67,18 @@ royer_lme_sum<- summary(royer_lme)
 
 
 royer_pred <- as.data.frame(predict(royer_lme, newdata = all_fossil_royer_pred, allow.new.levels= TRUE))
+```
 
+We use pattern matching and replacement to use the lm predictions and models using family as a factor.
+```{r}
 royer_fossil_dropped <-   all_fossil_royer_pred %>% 
   filter(!grepl('Cercidiphyllaceae', scrubbed_family)) %>%
   filter(!grepl('Smilacaceae', scrubbed_family)) %>%
   filter(!grepl('Staphyleaceae', scrubbed_family))
+```
 
-royer_fossil_dropped <-   all_fossil_royer_pred %>% 
-  filter(!grepl('Cercidiphyllaceae', scrubbed_family)) %>%
-  filter(!grepl('Smilacaceae', scrubbed_family)) %>%
-  filter(!grepl('Staphyleaceae', scrubbed_family))
+This code fixes royer_tax_full.
+```{r}
 
 royer_tax_fam_count <- royer_tax_full%>% 
   group_by(scrubbed_family) %>% 
@@ -94,14 +96,14 @@ royer_tax_top5 <- subset(royer_tax_count, as.numeric(n)>23)
 royer_tax_over10 <- subset(royer_tax_count, as.numeric(n)>9)
 ```
 
-Creating royer_lmfam_top5 and royer_lm_top5,the linear models for comparing log lma and contains predictions for log(lma) for 5 fossil famlies Ericaceae, Fabaceae, Fagceae, Myrtaceae, and Proteaceae
+Creating royer_lmfam_top5 and royer_lm_top5, the linear models for comparing log lma and contains predictions for log(lma) for 5 fossil families. 
 ```{r}
 royer_lmfam_top5 <- lm(log_lma~log_pet_leafarea, data = royer_tax_top5)
 pred_lmfam_top5 <-  as.data.frame(predict(royer_lmfam_top5, interval="prediction"))
 royer_lmfam_top5_bound <-  cbind(royer_tax_top5, pred_lmfam_top5)
 ```
 
-Plotting log_lma vs log(petiole^2/leafarea) for the top 5 families
+Plotting log_lma vs log(petiole^2/leafarea) for the top 5 families. 
 ```{r}
 ggplot(royer_lmfam_top5_bound, aes(log_pet_leafarea, log_lma))+
   aes(color=royer_lmfam_top5_bound$scrubbed_family)+
