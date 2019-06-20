@@ -72,7 +72,7 @@ royer_lme <- lmer(log_lma~log_pet_leafarea + (1|order/scrubbed_family/scrubbed_g
 
 royer_lme_sum<- summary(royer_lme)
 royer_lme_sum
-shitshit```
+```
 
 We use pattern matching and replacement to use the lm predictions and models using family as a factor.
 ```{r}
