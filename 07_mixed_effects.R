@@ -47,7 +47,7 @@ pred_lmfam <-as.data.frame(predict(royer_lmfam_top5, newdata=royer_fossil_droppe
 names(pred_lmfam)<-c("logLMAfam","lwrfam","uprfam")
 royer_lmfam_pred <-  cbind(royer_fossil_dropped, pred_lmfam )
 
-#lm preiciton, just regular-----
+#lm prediction, just regular-----
 royer_lm <- lm(log_lma ~ log_pet_leafarea, data = royer_tax_na_omit)
 pred_lm <-as.data.frame(predict(royer_lm, newdata=all_fossil_royer_pred, interval="prediction"))
 royer_lm_pred <-  cbind(all_fossil_royer_pred, pred_lm )
@@ -56,11 +56,11 @@ royer_lm_pred <-  cbind(all_fossil_royer_pred, pred_lm )
 pred_lm_extant <-as.data.frame(predict(royer_lm, interval="prediction"))
 royer_lm_extant <-  cbind(royer_tax_full, pred_lm_extant)
 
-#lm prediciton but for familys and stuff that exists------
+#lm prediction but for familys and stuff that exists------
 pred_lmfam_extant <- as.data.frame(predict(royer_lmfam, interval="prediction"))
 royer_lmfam_extant <-  cbind(royer_tax_na_omit, pred_lmfam_extant)
 
-#lm and prediciton for top 5 famlies
+#lm and prediction for top 5 famlies
 royer_lm_top5 <- lm(log_lma~log_pet_leafarea, data = royer_tax_top5)
 pred_lmfam_top5 <-  as.data.frame(predict(royer_lmfam_top5, interval="prediction"))
 royer_lmfam_top5_bound <-  cbind(royer_tax_top5, pred_lmfam_top5)
