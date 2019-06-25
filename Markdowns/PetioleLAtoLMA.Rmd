@@ -73,12 +73,13 @@ royer_tax_count<-royer_tax_na_omit%>%
   group_by(scrubbed_family)%>%
   mutate(count=n())
 royer_tax_count
-  ###Removing observations of singular families n<3
-royer_tax_new<-subset(royer_tax_count, count>3)
+
+  ###Removing observations of singular families n<3 and empty families
+royer_tax_new<-subset(royer_tax_count, count>3 & scrubbed_family!="")
+
 
 ###Creating leaf mass prediction model
 royer_lme <- lmer(log_lma~log_pet_leafarea + (1+log_pet_leafarea|scrubbed_family), data=royer_tax_new)
-
 
 royer_lme_sum<- summary(royer_lme)
 royer_lme_sum

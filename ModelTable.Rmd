@@ -1,0 +1,20 @@
+---
+title: "Model Table"
+output: html_document
+---
+
+```{r}
+library(data.table)
+ModelTable2<-data.frame("Rank"=c(1:6), "Slope Effects"=c("", "LPL","LPL", "", "LPL", ""), "Intercept Effects"=c("SF", "SF", "O, SF", "O, SF", "SO, O, SF", "SO, O, SF"), "LogLik"=c(-190.64, -187.33, -187.18, -190.59, -186.72, -190.59), "AIC"=c(389.28, 386.66, 392.35, 391.17, 397.43, 393.17), "dAIC"=c(0, -2.62, 3.07, 1.89, 8.15, 3.89))
+print(ModelTable2, row.names=FALSE)
+```
+
+```{r}
+library(knitr)
+library(dplyr)
+library(kableExtra)
+dt<-ModelTable2
+kable(dt, align='c')%>%
+  kable_styling(bootstrap_options="striped", full_width=F, position="right")
+
+```
