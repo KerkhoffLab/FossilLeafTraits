@@ -2,6 +2,16 @@
 title: "Model Table"
 output: html_document
 ---
+```{r}
+require(BIEN)
+require(plyr)
+require(tidyr) 
+require(dplyr)
+require(mosaic)
+require(stringr)
+require(lme4)
+require(magrittr)
+```
 
 ```{r}
 library(data.table)
@@ -14,7 +24,133 @@ library(knitr)
 library(dplyr)
 library(kableExtra)
 dt<-ModelTable2
-kable(dt, align='c')%>%
+table<-kable(dt, align='c')%>%
   kable_styling(bootstrap_options="striped", full_width=F, position="right")
 
+```
+
+```{r}
+royer_tax_full <- readRDS("./data/processed/07_lm4_royer")
+royer_tax_na_omit<-na.omit(royer_tax_full)  
+
+### Replacing "Unknown" with ""
+royer_tax_na_omit$scrubbed_family[royer_tax_na_omit$scrubbed_family=="Unknown"] <- ""
+
+
+tally<-tally(royer_tax_na_omit$scrubbed_family)
+##Making the data able to be analyzed for slopes
+  ###Adding occurence counts to dataset
+royer_tax_count<-royer_tax_na_omit%>%
+  group_by(scrubbed_family)%>%
+  mutate(count=n())
+royer_tax_count
+
+  ###Removing observations of singular families n<3 and empty families
+royer_tax_new<-subset(royer_tax_count, count>3 & scrubbed_family!="")
+```
+
+
+Models
+```{r}
+model1<-lmer(log_lma~log_pet_leafarea + (1+log_pet_leafarea|superorder/order/scrubbed_family), data=royer_tax_new)
+model2<-lmer(log_lma~log_pet_leafarea+(1+log_pet_leafarea|order/scrubbed_family), data=royer_tax_new)
+model3<-lmer(log_lma~log_pet_leafarea + (1+log_pet_leafarea|scrubbed_family), data=royer_tax_new)
+model4<-lmer(log_lma~log_pet_leafarea + (1|superorder/order/scrubbed_family), data=royer_tax_new)
+model5<-lmer(log_lma~log_pet_leafarea + (1|order/scrubbed_family), data=royer_tax_new)
+model6<-lmer(log_lma~log_pet_leafarea + (1|scrubbed_family), data=royer_tax_new)
+models<-c(model1, model2, model3, model4, model5, model6)
+```
+Fossil Fix
+```{r}
+florissant_fossil_int <- readRDS("./data/processed/04_florissant_fossil_clean.rds")
+renova_fossil_int <- readRDS("./data/processed/04_renova_fossil_clean.rds")
+bridgecreek_fossil_int <- readRDS("./data/processed/04_bridgecreek_fossil_clean.rds")
+
+fossil_comb <- rbind(florissant_fossil_int,renova_fossil_int,bridgecreek_fossil_int)
+fossil_gen <- fossil_comb$Genus
+fossil_gen <- unique(fossil_gen)
+fossil_gen_df <- as.data.frame(fossil_gen)
+fossil_tax <- BIEN_taxonomy_genus(fossil_gen)
+fossil_tax <- fossil_tax[-c(1,7:9)]
+fossil_tax <- unique(fossil_tax)
+
+all_fossil <- rbind(florissant_fossil_int, renova_fossil_int, bridgecreek_fossil_int)
+all_fossil$binomial <- paste(all_fossil$Genus, all_fossil$species)
+all_fossil$binomial <- str_replace_all(all_fossil$binomial,"\\s+","_")
+all_fossil <- all_fossil[-c(1,2)]
+
+ all_fossil_LMEpred <- all_fossil %>%
+  separate(binomial, 
+    c("scrubbed_genus", "species"))
+all_fossil_royer_pred <- left_join(all_fossil_LMEpred, fossil_tax, by = "scrubbed_genus")
+
+all_fossil_royer_pred <- na.omit(all_fossil_royer_pred)
+all_fossil_royer_pred <- unique(all_fossil_royer_pred)
+
+colnames(all_fossil_royer_pred)[colnames(all_fossil_royer_pred)=="Petiole Width (cm)"] <- "avg_petiole_width"
+colnames(all_fossil_royer_pred)[colnames(all_fossil_royer_pred)=="Leaf Area (cm^2)"] <- "avg_LA"
+colnames(all_fossil_royer_pred)[colnames(all_fossil_royer_pred)=="PW^2/A"] <- "log_pet_leafarea"
+colnames(all_fossil_royer_pred)[colnames(all_fossil_royer_pred)=="LMA (g/m^2)"] <- "log_LMA"
+```
+
+
+
+Getting rid of predictions from royer_tax_new that aren't present in all_fossil
+```{r}
+library(dataCompareR)
+options(max.print = 1000)
+af<-royer_tax_new$scrubbed_family
+af
+bf<-all_fossil_royer_pred$scrubbed_family
+bf
+
+##whats in all_fossil_royer_pred that isn't in #royer_tax_new
+
+missing<-bf[!(bf%in%af)]
+library(xlsx)
+write.csv(missing, file="./data/missing.csv")
+
+missing<-read.csv("./data/missing.csv")
+missingdata<-select(missing, -X)
+colnames(missingdata)[colnames(missingdata)=="x"]<-"scrubbed_family"
+
+tallymissing<-
+  missingdata%>%
+  group_by(scrubbed_family)%>%
+  tally()
+print.data.frame(tallymissing)
+
+new_fossil_royer_pred2<-all_fossil_royer_pred[!all_fossil_royer_pred$scrubbed_family %in% missingdata$scrubbed_family,]
+
+```
+
+
+
+Prediction Intervals
+```{r}
+mySumm<-function(.){
+  predict(.,newdata=new_fossil_royer_pred2, re.form=NULL)
+}
+
+sumboot<-function(merBoot){
+  return(
+    data.frame(fitfit = apply(merBoot$t, 2, function(x) as.numeric(quantile(x, probs=.5, na.rm=TRUE))),
+               lwr = apply(merBoot$t, 2, function(x) as.numeric(quantile(x, probs=.025, na.rm=TRUE))),
+               upr = apply(merBoot$t, 2, function(x) as.numeric(quantile(x, probs=.975, na.rm=TRUE)))
+    )
+  )
+}
+
+boot1<-lme4::bootMer(model3, mySumm, nsim=1000, use.u=FALSE, type="parametric")
+PI.boot1 <- sumBoot(boot1)
+
+comp.data <- rbind(data.frame(Predict.Method="predictInterval()", x=(1:nrow(PI))-0.1, PI),
+                   data.frame(Predict.Method="lme4::bootMer() - Method 2", x=(1:nrow(PI.boot1))+0.1, PI.boot1))
+
+ggplot(aes(x=x, y=fit, ymin=lwr, ymax=upr, color=Predict.Method), data=comp.data) +
+  geom_point() +
+  geom_linerange() +
+  labs(x="log_lma", y="Prediction w/ 95% PI") +
+  theme_bw() +  theme(legend.position="bottom") +
+  scale_color_brewer(type = "qual", palette = 2)
 ```
