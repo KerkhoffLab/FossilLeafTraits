@@ -13,6 +13,7 @@ require(lme4)
 require(magrittr)
 ```
 
+Making Table of Models
 ```{r}
 library(data.table)
 ModelTable2<-data.frame("Rank"=c(1:6), "Slope Effects"=c("", "LPL","LPL", "", "LPL", ""), "Intercept Effects"=c("SF", "SF", "O, SF", "O, SF", "SO, O, SF", "SO, O, SF"), "LogLik"=c(-190.64, -187.33, -187.18, -190.59, -186.72, -190.59), "AIC"=c(389.28, 386.66, 392.35, 391.17, 397.43, 393.17), "dAIC"=c(0, -2.62, 3.07, 1.89, 8.15, 3.89))
@@ -29,6 +30,7 @@ table<-kable(dt, align='c')%>%
 
 ```
 
+Preparing Royer Data
 ```{r}
 royer_tax_full <- readRDS("./data/processed/07_lm4_royer")
 royer_tax_na_omit<-na.omit(royer_tax_full)  
@@ -49,7 +51,6 @@ royer_tax_count
 royer_tax_new<-subset(royer_tax_count, count>3 & scrubbed_family!="")
 ```
 
-
 Models
 ```{r}
 model1<-lmer(log_lma~log_pet_leafarea + (1+log_pet_leafarea|superorder/order/scrubbed_family), data=royer_tax_new)
@@ -60,6 +61,7 @@ model5<-lmer(log_lma~log_pet_leafarea + (1|order/scrubbed_family), data=royer_ta
 model6<-lmer(log_lma~log_pet_leafarea + (1|scrubbed_family), data=royer_tax_new)
 models<-c(model1, model2, model3, model4, model5, model6)
 ```
+
 Fossil Fix
 ```{r}
 florissant_fossil_int <- readRDS("./data/processed/04_florissant_fossil_clean.rds")
@@ -87,13 +89,12 @@ all_fossil_royer_pred <- left_join(all_fossil_LMEpred, fossil_tax, by = "scrubbe
 all_fossil_royer_pred <- na.omit(all_fossil_royer_pred)
 all_fossil_royer_pred <- unique(all_fossil_royer_pred)
 
-colnames(all_fossil_royer_pred)[colnames(all_fossil_royer_pred)=="Petiole Width (cm)"] <- "avg_petiole_width"
-colnames(all_fossil_royer_pred)[colnames(all_fossil_royer_pred)=="Leaf Area (cm^2)"] <- "avg_LA"
-colnames(all_fossil_royer_pred)[colnames(all_fossil_royer_pred)=="PW^2/A"] <- "log_pet_leafarea"
-colnames(all_fossil_royer_pred)[colnames(all_fossil_royer_pred)=="LMA (g/m^2)"] <- "log_LMA"
+
+colnames(all_fossil_royer_pred)[colnames(all_fossil_royer_pred)=="Leaf Area (cm^2)"] <- "pet_leafarea"
+colnames(all_fossil_royer_pred)[colnames(all_fossil_royer_pred)=="LMA (g/m^2)"] <- "LMA"
+
+all_fossil_royer_pred$log_pet_leafarea<-log(all_fossil_royer_pred$pet_leafarea)
 ```
-
-
 
 Getting rid of predictions from royer_tax_new that aren't present in all_fossil
 ```{r}
@@ -107,11 +108,10 @@ bf
 ##whats in all_fossil_royer_pred that isn't in #royer_tax_new
 
 missing<-bf[!(bf%in%af)]
-library(xlsx)
 write.csv(missing, file="./data/missing.csv")
 
 missing<-read.csv("./data/missing.csv")
-missingdata<-select(missing, -X)
+missingdata<-subset(missing, select=-X)
 colnames(missingdata)[colnames(missingdata)=="x"]<-"scrubbed_family"
 
 tallymissing<-
@@ -124,33 +124,21 @@ new_fossil_royer_pred2<-all_fossil_royer_pred[!all_fossil_royer_pred$scrubbed_fa
 
 ```
 
-
-
-Prediction Intervals
 ```{r}
-mySumm<-function(.){
-  predict(.,newdata=new_fossil_royer_pred2, re.form=NULL)
-}
-
-sumboot<-function(merBoot){
-  return(
-    data.frame(fitfit = apply(merBoot$t, 2, function(x) as.numeric(quantile(x, probs=.5, na.rm=TRUE))),
-               lwr = apply(merBoot$t, 2, function(x) as.numeric(quantile(x, probs=.025, na.rm=TRUE))),
-               upr = apply(merBoot$t, 2, function(x) as.numeric(quantile(x, probs=.975, na.rm=TRUE)))
-    )
-  )
-}
-
-boot1<-lme4::bootMer(model3, mySumm, nsim=1000, use.u=FALSE, type="parametric")
-PI.boot1 <- sumBoot(boot1)
-
-comp.data <- rbind(data.frame(Predict.Method="predictInterval()", x=(1:nrow(PI))-0.1, PI),
-                   data.frame(Predict.Method="lme4::bootMer() - Method 2", x=(1:nrow(PI.boot1))+0.1, PI.boot1))
-
-ggplot(aes(x=x, y=fit, ymin=lwr, ymax=upr, color=Predict.Method), data=comp.data) +
+##let's try again
+require(merTools)
+PI<-predictInterval(merMod=model3, newdata=new_fossil_royer_pred2, 
+                    level=0.95, n.sims=1000,
+                    stat="median", type="linear.prediction",
+                    include.resid.var = TRUE)
+PI
+fossilpredictions<-cbind(new_fossil_royer_pred2,PI)
+library(ggplot2);
+ggplot(aes(x=log_pet_leafarea, y=fit, ymin=lwr, ymax=upr), data=fossilpredictions) +
   geom_point() +
   geom_linerange() +
-  labs(x="log_lma", y="Prediction w/ 95% PI") +
-  theme_bw() +  theme(legend.position="bottom") +
-  scale_color_brewer(type = "qual", palette = 2)
+  labs(x="log_pet_leafarea", y="Prediction w/ 95% PI") + theme_bw()
+
+
+
 ```
