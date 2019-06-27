@@ -322,7 +322,7 @@ ggplot(glm_pred_data, aes(log_lma, phenology, group=(scrubbed_family), color=scr
 
 ##maybe phylogenetic signal will be useful?
 ###phylosig(tree = tree_WSLA_na_WSLA, )
-
+ 
 ####################################
 
 
