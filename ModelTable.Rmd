@@ -134,11 +134,8 @@ PI<-predictInterval(merMod=model3, newdata=new_fossil_royer_pred2,
 PI
 fossilpredictions<-cbind(new_fossil_royer_pred2,PI)
 library(ggplot2);
-ggplot(aes(x=log_pet_leafarea, y=fit, ymin=lwr, ymax=upr), data=fossilpredictions) +
+ggplot(aes(x=log_pet_leafarea, y=fit, ymin=lwr, ymax=upr, color=new_fossil_royer_pred2$scrubbed_family), data=fossilpredictions) +
   geom_point() +
   geom_linerange() +
-  labs(x="log_pet_leafarea", y="Prediction w/ 95% PI") + theme_bw()
-
-
-
+  labs(color='scrubbed_family')
 ```
