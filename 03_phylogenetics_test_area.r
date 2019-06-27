@@ -17,7 +17,6 @@ SLA_fastAnc<-fastAnc(tree_WSLA_species,SLA,vars=TRUE,CI=TRUE)
 SLA_mapping<-contMap(tree_WSLA_species,SLA,plot=FALSE)
 plot(SLA_mapping,type="fan",legend=0.7*max(nodeHeights(tree_WSLA_species)), fsize=c(0.7,0.9))
 
-
 #rosidae fastanc analysis-------------------------------------------------------------------------------------------------
 WSLA_tree_nodes <- tree_WSLA_species$node.label
 Rosidae <- as.vector("Rosidae")
@@ -32,7 +31,6 @@ rosidae_fastAnc<-fastAnc(tree_rosidae,rosidae_matrix,vars=TRUE,CI=TRUE)
 rosidae_mapping<-contMap(tree_rosidae,rosidae_matrix,plot=FALSE)
 plot(rosidae_mapping,legend=0.7*max(nodeHeights(tree_rosidae)), fsize=c(0.7,0.9), ftype="off")
 plot(tree_rosidae, type="fan", show.tip.label = FALSE)
-
 
 #simmap rosidae-------------------------------------------------------------------------------------------------
 species_state <- final_WSLA_DF [-c(2,3,5,6)]
@@ -132,11 +130,9 @@ tree_WSLA_na_WSLA <- drop.tip(tree_WSLA_species, not_in_all_na_D_EV)
 tree_WSLA_na_WSLA_tips <- tree_WSLA_na_WSLA$tip.label
 tree_WSLA_na_WSLA_tips <- as.data.frame(tree_WSLA_na_WSLA_tips)
 
-
 #matching to tree-------------------------------------------------------------------------------------------------
 all_SLA_LMA_pheno_means <- all_SLA_LMA_pheno_means[ order(match(all_SLA_LMA_pheno_means$binomial, 
                                                 tree_WSLA_na_WSLA_tips$tree_WSLA_na_WSLA_tips)), ]
-
 #Decidous=1 Evergreen=0 creation of binary factor-------------------------------------------------------------------------------------------------
 all_SLA_LMA_pheno_means$Phenology <- as.character(all_SLA_LMA_pheno_means$Phenology)
 all_SLA_LMA_pheno_means$Phenology[all_SLA_LMA_pheno_means$Phenology == "D"] <- "0"
@@ -159,7 +155,6 @@ plot.phyloglm(phylog_all)
 phylog_all_log <- phyloglm(as.numeric(Phenology)~log(SLA), data = all_SLA_LMA_pheno_means, phy = tree_WSLA_na_WSLA, method = c("logistic_IG10"))
 summary(phylog_all_log)
 plot.phyloglm(phylog_all_log)
-
 
 
 #ggplot of phylog.all-------------------------------------------------------------------------------------------------
@@ -197,7 +192,6 @@ ggplot(plot_data_all_log) +
   ))
 
 
-
 #ABANDON ALL HOPE YE WHO ENTER THIS PART OF THE CODE, TESTING BELOW
 phylog_all_ape <- compar.gee(as.numeric(Phenology)~SLA, data = all_SLA_LMA_pheno_means, 
                              phy = tree_WSLA_na_WSLA, family = binomial())
@@ -229,8 +223,6 @@ phylog_predict <- predict(phylog_all_ape)
  #                           phy = tree.phyloglm.myrtales, family = binomial())
 
 
-
-
 ################ residual trait analysis
 phylog.all.resid <- residuals(phylog.all)
 phylog.all.resid <- as.data.frame(phylog.all.resid)
@@ -247,10 +239,17 @@ summary(phylo.glm)
 
 predict.glm(SLA.LMA.glm.predict.families)
 
-###################### family level predictions?
+
+
+
+
+
+
+
+
+
 
 ######logistic regression predictions on deciduous vs evergreen for fossils----------
-
 
 royer_data_split <-
   royer_data %>% separate(binomial, c("genus", "species"))
@@ -300,7 +299,6 @@ ggplot(extinct_over10_fossil_tax_glm_preds,
   geom_point()
 
 
-
 #logisitc regression curve for nofam-----
 plot(extinct_over10_fossil_tax_glm_preds$log_lma, 
      extinct_over10_fossil_tax_glm_preds$pred_nofam, xlab="log_lma", ylab="nofam")
@@ -318,28 +316,3 @@ curve(predict(over10_glm_phen_fam, data.frame(log_lma=x),type="resp"),add=TRUE)
 ggplot(glm_pred_data, aes(log_lma, phenology, group=(scrubbed_family), color=scrubbed_family)) + 
   geom_point() + 
   stat_smooth(method="glm", method.args=list(family="binomial"), se=FALSE)
-
-
-##maybe phylogenetic signal will be useful?
-###phylosig(tree = tree_WSLA_na_WSLA, )
- 
-####################################
-
-
-######## from what i 
-
-#####run regular logistic regression, compare predictions
-###### go through Garland and Ives again, look for ways to compare the regular and the phylogenetic
-###### how can we compare phylogentic to nonphylogenetic
-###### how does it handle making prediciotns? how does it work with phylo vs nonphylo
-###### lm predicitons with phylogenetics  how to predcit new data with phylogenetic logistic regression
-##### compare predicitons that are generated from the regular regression and the phylogenetic regression
-##### look into phyloglm package and how it treats the phylogenetic information, what bearing does the phylogenetic info have on predicitons?
-##### is the phylogenetic structure in the resisduals?
-########is phylogenetic model more informative? look at literature
-############ use coefficents to try and predict the the phyloglm model???????
-
-#more ideas-------
-
-
-
