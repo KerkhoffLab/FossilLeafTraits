@@ -234,12 +234,10 @@ royer_fossil_dropped <-   all_fossil_royer_pred %>%
   filter(!grepl('Smilacaceae', scrubbed_family)) %>%
   filter(!grepl('Staphyleaceae', scrubbed_family))
 
-royer_tax_fam_count <- royer_tax_full%>% 
-  group_by( scrubbed_family) %>% 
-  summarize(count=n()) %>% 
-  filter(!grepl('Unknown', scrubbed_family))
-
-royer_tax_count <- left_join(royer_tax_full, royer_tax_fam_count, by="scrubbed_family")
+royer_tax_count <- royer_tax_full_na_omit%>% 
+  group_by(scrubbed_family) %>% 
+  mutate(count=n()) %>% 
+royer_tax_count
 
 #creation of royer_tax_top_5/ royer_tax_over_10---------------
 #These are imporatant as these determine the top 5 extant families with the most samples, and the top 10 families respecitively------

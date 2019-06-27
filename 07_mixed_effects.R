@@ -2,9 +2,10 @@
 #additional lm vs lmfam comparisons
 
 
-royer_tax_full <- readRDS("~/Documents/BEIN data R/data/processed/07_lm4_royer")
+royer_tax_full <- readRDS("./data/processed/07_lm4_royer")
 royer_tax_na_omit<-na.omit(royer_tax_full)
 
+##model using order, scrubbed family and genus to determine but this is NOT the effective model
 royer_lme <- lmer(log_lma ~ log_pet_leafarea + (1|order/scrubbed_family/scrubbed_genus), data = royer_tax_full)
 royer_lme_sum<- summary(royer_lme)
 
@@ -16,15 +17,14 @@ royer_fossil_dropped <-   all_fossil_royer_pred %>%
   filter(!grepl('Smilacaceae', scrubbed_family)) %>%
   filter(!grepl('Staphyleaceae', scrubbed_family))
   
-#family lm----
+### Replacing "Unknown" with ""
+royer_tax_na_omit$scrubbed_family[royer_tax_na_omit$scrubbed_family=="Unknown"] <- ""
 
-#fixing royer_tax_full cause its messed up---------
-royer_tax_fam_count <- royer_tax_full%>% 
-  group_by( scrubbed_family) %>% 
-  summarize(count=n()) %>% 
-  filter(!grepl('Unknown', scrubbed_family))
-
-royer_tax_count <- left_join(royer_tax_full, royer_tax_fam_count, by="scrubbed_family")
+##adds occurrence counts to the data
+royer_tax_count <- royer_tax_full_na_omit%>% 
+  group_by(scrubbed_family) %>% 
+  mutate(count=n()) %>% 
+royer_tax_count
 
 #creation of royer_top_5/ greater_ten
 royer_tax_top5 <- subset(royer_tax_count, as.numeric(count)>23)
