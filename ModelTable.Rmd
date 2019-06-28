@@ -27,7 +27,7 @@ library(kableExtra)
 dt<-ModelTable2
 table<-kable(dt, align='c')%>%
   kable_styling(bootstrap_options="striped", full_width=F, position="right")
-
+table
 ```
 
 Preparing Royer Data
@@ -53,13 +53,8 @@ royer_tax_new<-subset(royer_tax_count, count>3 & scrubbed_family!="")
 
 Models
 ```{r}
-model1<-lmer(log_lma~log_pet_leafarea + (1+log_pet_leafarea|superorder/order/scrubbed_family), data=royer_tax_new)
-model2<-lmer(log_lma~log_pet_leafarea+(1+log_pet_leafarea|order/scrubbed_family), data=royer_tax_new)
 model3<-lmer(log_lma~log_pet_leafarea + (1+log_pet_leafarea|scrubbed_family), data=royer_tax_new)
-model4<-lmer(log_lma~log_pet_leafarea + (1|superorder/order/scrubbed_family), data=royer_tax_new)
-model5<-lmer(log_lma~log_pet_leafarea + (1|order/scrubbed_family), data=royer_tax_new)
-model6<-lmer(log_lma~log_pet_leafarea + (1|scrubbed_family), data=royer_tax_new)
-models<-c(model1, model2, model3, model4, model5, model6)
+
 ```
 
 Fossil Fix
@@ -125,7 +120,7 @@ new_fossil_royer_pred2<-all_fossil_royer_pred[!all_fossil_royer_pred$scrubbed_fa
 ```
 
 ```{r}
-##let's try again
+##Prediction Intervals 
 require(merTools)
 PI<-predictInterval(merMod=model3, newdata=new_fossil_royer_pred2, 
                     level=0.95, n.sims=1000,
