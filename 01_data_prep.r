@@ -227,13 +227,7 @@ fossil_tax <- BIEN_taxonomy_genus(fossil_gen)
 fossil_tax <- fossil_tax[-c(1,7:9)]
 fossil_tax <- unique(fossil_tax)
 
-
-
-
-
-
 #royer data cleaning for LME4------------
-#come back to this fix this damn data-------
 royer_data_LME4<-
   royer_data %>% 
   group_by(binomial) %>% 

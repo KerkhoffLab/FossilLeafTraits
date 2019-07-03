@@ -87,7 +87,7 @@ royer_fossil_dropped <-   all_fossil_royer_pred %>%
 
 royer_pred <- as.data.frame(predict(royer_lme, newdata = all_fossil_royer_pred, allow.new.levels= TRUE))
 ```
-
+non linear mixed effects model
 ###Logistic Regression
 We create sets so we can determine the top 5 extant families with the most samples, and the top 10 families respecitively.
 ```{r}

@@ -38,7 +38,7 @@
 ###think necessarily needs to be there 
 ##then there's some plotting
 ###then theres logisitic regression predicting phenlogoy off of log_lma but its so short?
-###is that all???
+###is that all???pte
 
 
 

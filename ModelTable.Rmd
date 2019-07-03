@@ -2,6 +2,10 @@
 title: "Model Table"
 output: html_document
 ---
+
+The goal of this markdown is to show the paths taken to creating a model based off of a living data set that makes prediction intervals for LMA of a fossil data set. Once LMA is found, we will be able to gain phylogenetic information from a model that predicts phylogeny based off of LMA. This is being done to work on improving fossil species predictions when using taxonomic analysis of functional traits. 
+
+
 ```{r}
 require(BIEN)
 require(plyr)
@@ -11,26 +15,11 @@ require(mosaic)
 require(stringr)
 require(lme4)
 require(magrittr)
+require(data.table)
 ```
 
-Making Table of Models
-```{r}
-library(data.table)
-ModelTable2<-data.frame("Rank"=c(1:6), "Slope Effects"=c("", "LPL","LPL", "", "LPL", ""), "Intercept Effects"=c("SF", "SF", "O, SF", "O, SF", "SO, O, SF", "SO, O, SF"), "LogLik"=c(-190.64, -187.33, -187.18, -190.59, -186.72, -190.59), "AIC"=c(389.28, 386.66, 392.35, 391.17, 397.43, 393.17), "dAIC"=c(0, -2.62, 3.07, 1.89, 8.15, 3.89))
-print(ModelTable2, row.names=FALSE)
-```
 
-```{r}
-library(knitr)
-library(dplyr)
-library(kableExtra)
-dt<-ModelTable2
-table<-kable(dt, align='c')%>%
-  kable_styling(bootstrap_options="striped", full_width=F, position="right")
-table
-```
-
-Preparing Royer Data
+In order to run this model, we must first fix the royer_tax_full data set so it does not contain NA values, all "Unknown" values show up as blanks, and occurence data is shown alongside each observation. Then, all families with an occurence count of less than 3 are omitted. 
 ```{r}
 royer_tax_full <- readRDS("./data/processed/07_lm4_royer")
 royer_tax_na_omit<-na.omit(royer_tax_full)  
@@ -51,13 +40,36 @@ royer_tax_count
 royer_tax_new<-subset(royer_tax_count, count>3 & scrubbed_family!="")
 ```
 
-Models
+We must determine which mixed effects model is best suited to make prediction intervals. Using intercept effects super order, order, and scrubbed family and a slope effect of log pet leaf area, we determine the most suitable model by running a maximum likelihood ANOVA test and looking at the outputs in LogLik, AIC, dAIC, and p value. These are shown in the following table. 
+```{r}
+model1<-lmer(log_lma~log_pet_leafarea + (1+log_pet_leafarea|superorder/order/scrubbed_family), data=royer_tax_new)
+model2<-lmer(log_lma~log_pet_leafarea+(1+log_pet_leafarea|order/scrubbed_family), data=royer_tax_new)
+model3<-lmer(log_lma~log_pet_leafarea + (1+log_pet_leafarea|scrubbed_family), data=royer_tax_new)
+model4<-lmer(log_lma~log_pet_leafarea + (1|superorder/order/scrubbed_family), data=royer_tax_new)
+model5<-lmer(log_lma~log_pet_leafarea + (1|order/scrubbed_family), data=royer_tax_new)
+model6<-lmer(log_lma~log_pet_leafarea + (1|scrubbed_family), data=royer_tax_new)
+
+modcompare<-anova(model1, model2, model3, model4, model5, model6)
+DT<-as.data.table(modcompare, keep.rownames = TRUE)
+DT<-DT[,rank:=rank(AIC, ties.method = "first")]
+DT<-DT[order(DT$rank)]
+
+print(DT, row.names=FALSE)
+dt<-subset(DT, select=c("rank", "rn", "Df", "AIC", "BIC", "logLik", "deviance", "Chisq", "Pr(>Chisq)" ))
+table<-kable(dt, align='c')%>%
+  kable_styling(bootstrap_options="striped", full_width=F)
+table
+
+```
+
+
+The best model is found to be model 3, with a slope effect of log pet leaf area and intercept effect of scrubbed family.
 ```{r}
 model3<-lmer(log_lma~log_pet_leafarea + (1+log_pet_leafarea|scrubbed_family), data=royer_tax_new)
 
 ```
 
-Fossil Fix
+Moving forward, we must create the fossil data set made up of 3 different data sets, and get rid of NA values, separate scrubbed_genus and species from within binomial, and create the log version of log pet leaf area. 
 ```{r}
 florissant_fossil_int <- readRDS("./data/processed/04_florissant_fossil_clean.rds")
 renova_fossil_int <- readRDS("./data/processed/04_renova_fossil_clean.rds")
@@ -91,7 +103,7 @@ colnames(all_fossil_royer_pred)[colnames(all_fossil_royer_pred)=="LMA (g/m^2)"] 
 all_fossil_royer_pred$log_pet_leafarea<-log(all_fossil_royer_pred$pet_leafarea)
 ```
 
-Getting rid of predictions from royer_tax_new that aren't present in all_fossil
+In order to compare our fossil data set to the living data set, we must omit predictions from all_fossil_royer_pred that aren't present in royer_tax_new so all observations in the fossil data set are accounted for. 
 ```{r}
 library(dataCompareR)
 options(max.print = 1000)
@@ -119,6 +131,7 @@ new_fossil_royer_pred2<-all_fossil_royer_pred[!all_fossil_royer_pred$scrubbed_fa
 
 ```
 
+Then, prediction intervals are created for LMA in new_fossil_royer_pred2 based on model 3. The dataset contains observations for expected LMA, but this gives prediction intervals for log LMA that give a more picture of what those values should be. 
 ```{r}
 ##Prediction Intervals 
 require(merTools)
