@@ -23,6 +23,7 @@ model5<-lmer(log_lma~log_pet_leafarea + (1|order/scrubbed_family), data=royer_ta
 model6<-lmer(log_lma~log_pet_leafarea + (1|scrubbed_family), data=royer_tax_new)
 
 modcompare<-anova(model1, model2, model3, model4, model5, model6)
+modcompare
 modcompare$logLik
 
 model7<-lmer(log_lma~log_pet_leafarea + (1+log_pet_leafarea|))
@@ -44,14 +45,12 @@ modcompare<-anova(model1, model2, model3, model4, model5, model6)
 
 
 library(data.table)
+library(knitr)
+library(kableExtra)
+library(data.table)
+ModelTable2<-data.frame("Rank"=c(1:6), "Slope Effects"=c("", "LPL","LPL", "", "LPL", ""), "Intercept Effects"=c("SF", "SF", "O, SF", "O, SF", "SO, O, SF", "SO, O, SF"), "LogLik"=c(-190.64, -187.33, -187.18, -190.59, -186.72, -190.59), "AIC"=c(389.28, 386.66, 392.35, 391.17, 397.43, 393.17), "dAIC"=c(0, -2.62, 3.07, 1.89, 8.15, 3.89))
 
-DT<-as.data.table(modcompare, keep.rownames = TRUE)
-DT<-DT[,rank:=rank(AIC, ties.method = "first")]
-DT<-DT[order(DT$rank)]
-
-print(DT, row.names=FALSE)
-dt<-subset(DT, select=c("rank", "rn", "Df", "AIC", "BIC", "logLik", "deviance", "Chisq", "Pr(>Chisq)" ))
-table<-kable(dt, align='c')%>%
+table<-kable(ModelTable2, align='c')%>%
   kable_styling(bootstrap_options="striped", full_width=F)
 table
 

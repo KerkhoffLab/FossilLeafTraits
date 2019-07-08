@@ -16,6 +16,8 @@ require(stringr)
 require(lme4)
 require(magrittr)
 require(data.table)
+require(knitr)
+require(kableExtra)
 ```
 
 
@@ -50,13 +52,10 @@ model5<-lmer(log_lma~log_pet_leafarea + (1|order/scrubbed_family), data=royer_ta
 model6<-lmer(log_lma~log_pet_leafarea + (1|scrubbed_family), data=royer_tax_new)
 
 modcompare<-anova(model1, model2, model3, model4, model5, model6)
-DT<-as.data.table(modcompare, keep.rownames = TRUE)
-DT<-DT[,rank:=rank(AIC, ties.method = "first")]
-DT<-DT[order(DT$rank)]
 
-print(DT, row.names=FALSE)
-dt<-subset(DT, select=c("rank", "rn", "Df", "AIC", "BIC", "logLik", "deviance", "Chisq", "Pr(>Chisq)" ))
-table<-kable(dt, align='c')%>%
+ModelTable2<-data.frame("Model"=c(6, 3, 5, 2, 4, 1), "Rank"=c(1:6), "Slope Effects"=c("", "LPL","LPL", "", "LPL", ""), "Intercept Effects"=c("SF", "SF", "O, SF", "O, SF", "SO, O, SF", "SO, O, SF"), "LogLik"=c(-187.25, -184.00, -187.20, -183.69, -187.20, -183.32), "AIC"=c(382.49, 380.00, 384.40, 385.37, 386.40, 390.64), "dAIC"=c(0, -2.49, 4.40, 5.37, 6.40, 10.64))
+
+table<-kable(ModelTable2, align='c')%>%
   kable_styling(bootstrap_options="striped", full_width=F)
 table
 
