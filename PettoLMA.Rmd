@@ -1,0 +1,155 @@
+---
+title: "Petiole Width to Leaf Mass Area"
+output: html_document
+---
+
+
+The goal of this markdown is to show the paths taken to creating a model based off of a living data set that makes prediction intervals for LMA of a fossil data set. Once LMA is found, we will be able to gain phylogenetic information from a model that predicts phylogeny based off of LMA. This is being done to work on improving fossil species predictions when using taxonomic analysis of functional traits. 
+
+
+```{r}
+require(BIEN)
+require(plyr)
+require(tidyr) 
+require(dplyr)
+require(mosaic)
+require(stringr)
+require(lme4)
+require(magrittr)
+require(data.table)
+require(knitr)
+require(kableExtra)
+```
+
+
+In order to run this model, we must first fix the royer_tax_full data set so it does not contain NA values, all "Unknown" values show up as blanks, and occurence data is shown alongside each observation. Then, all families with an occurence count of less than 3 are omitted. 
+```{r}
+royer_tax_full <- readRDS("./data/processed/07_lm4_royer")
+royer_tax_na_omit<-na.omit(royer_tax_full)  
+
+### Replacing "Unknown" with ""
+royer_tax_na_omit$scrubbed_family[royer_tax_na_omit$scrubbed_family=="Unknown"] <- ""
+
+
+tally<-tally(royer_tax_na_omit$scrubbed_family)
+##Making the data able to be analyzed for slopes
+  ###Adding occurence counts to dataset
+royer_tax_count<-royer_tax_na_omit%>%
+  group_by(scrubbed_family)%>%
+  mutate(count=n())
+royer_tax_count
+
+  ###Removing observations of singular families n<3 and empty families
+royer_tax_new<-subset(royer_tax_count, count>3 & scrubbed_family!="")
+```
+
+We must determine which mixed effects model is best suited to make prediction intervals. Using intercept effects super order, order, and scrubbed family and a slope effect of log pet leaf area, we determine the most suitable model by running a maximum likelihood ANOVA test and looking at the outputs in LogLik, AIC, dAIC, and p value. These are shown in the following table. 
+```{r}
+model1<-lmer(log_lma~log_pet_leafarea + (1+log_pet_leafarea|superorder/order/scrubbed_family), data=royer_tax_new)
+model2<-lmer(log_lma~log_pet_leafarea+(1+log_pet_leafarea|order/scrubbed_family), data=royer_tax_new)
+model3<-lmer(log_lma~log_pet_leafarea + (1+log_pet_leafarea|scrubbed_family), data=royer_tax_new)
+model4<-lmer(log_lma~log_pet_leafarea + (1|superorder/order/scrubbed_family), data=royer_tax_new)
+model5<-lmer(log_lma~log_pet_leafarea + (1|order/scrubbed_family), data=royer_tax_new)
+model6<-lmer(log_lma~log_pet_leafarea + (1|scrubbed_family), data=royer_tax_new)
+
+modcompare<-anova(model1, model2, model3, model4, model5, model6)
+
+ModelTable2<-data.frame("Model"=c(6, 3, 5, 2, 4, 1), "Rank"=c(1:6), "Slope Effects"=c("", "LPL","LPL", "", "LPL", ""), "Intercept Effects"=c("SF", "SF", "O, SF", "O, SF", "SO, O, SF", "SO, O, SF"), "LogLik"=c(-187.25, -184.00, -187.20, -183.69, -187.20, -183.32), "AIC"=c(382.49, 380.00, 384.40, 385.37, 386.40, 390.64), "dAIC"=c(0, -2.49, 4.40, 5.37, 6.40, 10.64))
+
+table<-kable(ModelTable2, align='c')%>%
+  kable_styling(bootstrap_options="striped", full_width=F)
+table
+
+```
+
+
+The best model is found to be model 3, with a slope effect of log pet leaf area and intercept effect of scrubbed family.
+```{r}
+model3<-lmer(log_lma~log_pet_leafarea + (1+log_pet_leafarea|scrubbed_family), data=royer_tax_new)
+
+```
+
+Moving forward, we must create the fossil data set made up of 3 different data sets, and get rid of NA values, separate scrubbed_genus and species from within binomial, and create the log version of log pet leaf area. 
+```{r}
+florissant_fossil_int <- readRDS("./data/processed/04_florissant_fossil_clean.rds")
+renova_fossil_int <- readRDS("./data/processed/04_renova_fossil_clean.rds")
+bridgecreek_fossil_int <- readRDS("./data/processed/04_bridgecreek_fossil_clean.rds")
+
+fossil_comb <- rbind(florissant_fossil_int,renova_fossil_int,bridgecreek_fossil_int)
+fossil_gen <- fossil_comb$Genus
+fossil_gen <- unique(fossil_gen)
+fossil_gen_df <- as.data.frame(fossil_gen)
+fossil_tax <- BIEN_taxonomy_genus(fossil_gen)
+fossil_tax <- fossil_tax[-c(1,7:9)]
+fossil_tax <- unique(fossil_tax)
+
+all_fossil <- rbind(florissant_fossil_int, renova_fossil_int, bridgecreek_fossil_int)
+all_fossil$binomial <- paste(all_fossil$Genus, all_fossil$species)
+all_fossil$binomial <- str_replace_all(all_fossil$binomial,"\\s+","_")
+all_fossil <- all_fossil[-c(1,2)]
+
+ all_fossil_LMEpred <- all_fossil %>%
+  separate(binomial, 
+    c("scrubbed_genus", "species"))
+all_fossil_royer_pred <- left_join(all_fossil_LMEpred, fossil_tax, by = "scrubbed_genus")
+
+all_fossil_royer_pred <- na.omit(all_fossil_royer_pred)
+all_fossil_royer_pred <- unique(all_fossil_royer_pred)
+
+
+colnames(all_fossil_royer_pred)[colnames(all_fossil_royer_pred)=="Leaf Area (cm^2)"] <- "pet_leafarea"
+colnames(all_fossil_royer_pred)[colnames(all_fossil_royer_pred)=="LMA (g/m^2)"] <- "LMA"
+
+all_fossil_royer_pred$log_pet_leafarea<-log(all_fossil_royer_pred$pet_leafarea)
+```
+
+In order to compare our fossil data set to the living data set, we must omit predictions from all_fossil_royer_pred that aren't present in royer_tax_new so all observations in the fossil data set are accounted for. 
+```{r}
+library(dataCompareR)
+options(max.print = 1000)
+af<-royer_tax_new$scrubbed_family
+af
+bf<-all_fossil_royer_pred$scrubbed_family
+bf
+
+##whats in all_fossil_royer_pred that isn't in #royer_tax_new
+
+missing<-bf[!(bf%in%af)]
+write.csv(missing, file="./data/missing.csv")
+
+missing<-read.csv("./data/missing.csv")
+missingdata<-subset(missing, select=-X)
+colnames(missingdata)[colnames(missingdata)=="x"]<-"scrubbed_family"
+
+tallymissing<-
+  missingdata%>%
+  group_by(scrubbed_family)%>%
+  tally()
+print.data.frame(tallymissing)
+
+new_fossil_royer_pred2<-all_fossil_royer_pred[!all_fossil_royer_pred$scrubbed_family %in% missingdata$scrubbed_family,]
+
+```
+
+Then, prediction intervals are created for LMA in new_fossil_royer_pred2 based on model 3. The dataset contains observations for expected LMA, but this gives prediction intervals for log LMA that give a more picture of what those values should be. 
+```{r}
+##Prediction Intervals 
+require(merTools)
+PI<-predictInterval(merMod=model3, newdata=new_fossil_royer_pred2, 
+                    level=0.95, n.sims=1000,
+                    stat="median", type="linear.prediction",
+                    include.resid.var = TRUE)
+PI
+fossilpredictions<-cbind(new_fossil_royer_pred2,PI)
+library(ggplot2);
+ggplot(aes(x=log_pet_leafarea, y=fit, ymin=lwr, ymax=upr, color=new_fossil_royer_pred2$scrubbed_family), data=fossilpredictions) +
+  geom_point() +
+  geom_linerange() +
+  labs(color='scrubbed_family')
+```
+
+Save fossil predictions and eliminate unnecessary columns
+```{r}
+fossilpredictionsfinal<-fossilpredictions[-c(5, 6, 7, 8, 14, 15)]
+write.csv(fossilpredictionsfinal, file="./data/processed/fossilpredictionsfinal.csv")
+```
