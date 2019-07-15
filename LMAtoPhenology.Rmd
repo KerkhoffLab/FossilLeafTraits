@@ -1,0 +1,105 @@
+---
+title: "LMA to Phenology"
+output: html_document
+---
+
+```{r setup,}
+require(BIEN)
+require(plyr)
+require(tidyr) 
+require(dplyr)
+require(mosaic)
+require(stringr)
+require(lme4)
+require(magrittr)
+require(data.table)
+require(knitr)
+require(kableExtra)
+```
+
+
+In order to run this model, we must first load royer_fossil_data_int and WSLA_final_DF. royer_fossil_data_int is our fossil dataset and WSLA_final_DF is our living dataset that will be used to create the prediction model. We must then eliminate unnecessary columns from each dataset and add a tally to the fossil set. 
+```{r}
+###royer_tax_full
+royer_tax_full<-readRDS(royer_tax_full, file="./data/processed/07_lm4_royer")
+
+tally<-tally(royer_tax_full$scrubbed_family)
+  ###Adding occurence counts to dataset
+royer_tax_count2<-royer_tax_full%>%
+  dplyr::group_by(scrubbed_family)%>%
+  dplyr::mutate(count=n())
+royer_tax_full<-royer_tax_count2
+###Removing observations of singular families n<3 and empty families
+royer_tax_final<-subset(royer_tax_full, count>3 & scrubbed_family!="")
+###Removing columns that are irrelevant
+royer_tax_final<-royer_tax_final[-c(1, 2, 3, 5, 6, 7, 8)]
+
+
+###final_WSLA_DF
+final_WSLA_DF<-readRDS(final_WSLA_DF, file = "./data/processed/03_finalWSLADF.rds")
+###Changing column names so they match up between files
+colnames(final_WSLA_DF)[colnames(final_WSLA_DF)=="n"]<-"count"
+###Removing columns that are irrelevant
+final_WSLA_DF<-final_WSLA_DF[-c(2)]
+```
+
+We now need to add order and superorder information to final_WSLA_
+```{r}
+## Look up superorder and order with BIEN (literally do not run this code its saved as a csv)
+
+species_df <- data.frame(binomial = unique(final_WLSA_DF$binomial))
+species_df$binomial <- gsub("_", " ", species_df$binomial)
+species_df$binomial <- as.character(species_df$binomial)
+species_df$order <- NA
+species_df$superoder <- NA
+
+species_df2 <- species_df
+
+for (i in 1091:length(species_df$binomial)){
+  
+  cat(paste("Extracting species", i, "\n"))
+  tmp <- BIEN_taxonomy_species(species_df$binomial[i])
+  
+  if (length(tmp)!=0){
+    
+  species_df$order[i] <- unique(tmp$order)
+  species_df$superoder[i] <- unique(tmp$superorder)
+  
+  }else{
+  
+  species_df$order[i] <- NA
+  species_df$superoder[i] <- NA
+    
+  }
+  
+ 
+}
+
+species_df$order <- unlist(species_df$order)
+species_df$superoder <- unlist(species_df$superoder)
+names(species_df)[3] <- "superorder"
+
+write.csv(species_df, file="./data/processed/species_df.csv")
+```
+
+```{r}
+###assigns values to evergreen and deciduous and eliminates those without phenology 
+final_WSLA_DF$Phenology<-as.factor(final_WSLA_DF$Phenology)
+final_WSLA_DF$Phenology2<-ifelse(final_WSLA_DF$Phenology == "EV", 1, 0)
+indx <- which(final_WSLA_DF$Phenology == "D_EV")
+final_WSLA_DF$Phenology2[indx] <- NA
+
+###Now we are going to add phenology and LMA back in so we have to match order and super order back up
+species_df<-read.csv("./data/processed/species_df.csv")
+final_WSLA_DF$binomial <- gsub("_", " ", final_WSLA_DF$binomial)
+final_WSLA_DF<-left_join(species_df, final_WSLA_DF, by="binomial")
+final_WSLA_DF<-final_WSLA_DF[-c(1, 5, 6, 7)]
+
+
+mod1<-glmer(Phenology2~LMA+(1+LMA|scrubbed_family), family="binomial", data=final_WSLA_DF)
+mod2<-glmer(Phenology~LMA+(LMA|scrubbed_family), family= "binomial", data=final_WSLA_DF)
+mod3<-glmer(Phenology~LMA+(1|scrubbed_family), family="binomial", data=final_WSLA_DF)
+
+
+
+```
