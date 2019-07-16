@@ -24,52 +24,14 @@ require(lme4)
 require(RColorBrewer)
 
 
-#create original WSLA dataset-------------------------------------------------------------------------
-WSLA <- BIEN_trait_trait("leaf area per leaf dry mass")
-WSLA_raw <- WSLA
-GlobalLeafPhenologyDatabase <- read.csv("./data/raw/GlobalLeafPhenologyDatabase.csv")
-Zanne <- GlobalLeafPhenologyDatabase
-colnames(Zanne)[colnames(Zanne)=="Binomial"] <- "binomial"
-Zanne$binomial <- str_replace_all(Zanne$binomial,"\\s+","_")
-colnames(WSLA)[colnames(WSLA)=="scrubbed_species_binomial"] <- "binomial"
-WSLA$binomial <- str_replace_all(WSLA$binomial,"\\s+","_")
 
-#create final_WLSA dataset-------------------------------------------------------------------------
-WSLA$LMA <- (1/as.numeric(WSLA$trait_value))*1000
-#####  is.numeric = asks r if a column in a dataframe if somethings numeric
-#####  as.numeric = makes r say a column is numeric
-#####  g per m2
-WSLA <- left_join(WSLA, Zanne, by="binomial")
-##### Joins stuff in Zanne by column "Binomial"
 
-binomial <- WSLA_raw[,1, drop=FALSE]
-#####Binomial data only from WSLA dataframe
-WSLA_species_by_family <-c (binomial$scrubbed_species_binomial)
-#####gives vector of all species in dataframe binomial
-taxonomy_data<- BIEN_taxonomy_species(WSLA_species_by_family)
-##### Gives all taxonomic data of species in dataframe binomial
-family_binomial <- taxonomy_data[ -c(1:4,6,8:9) ] 
-##### leaves me with just species binomal and family binomial
-colnames(family_binomial)[colnames(family_binomial)=="scrubbed_species_binomial"] <- "binomial"
-family_binomial$binomial <- str_replace_all(family_binomial$binomial,"\\s+","_")
+###separate dataset has phenology and LMA --- WSLA is a living dataset 
+###Zanne is phenology for WSLA and WSLA is zonne phenology data and LMA data from BIEN
 
-WSLA <- left_join(WSLA, family_binomial, by="binomial")
+####fossil data sets dont have phenology because youre predicting phenology for them
+###take predicted LMA values to predict phenology
 
-##### deletes all unreasonable values-------------------------------------------------------------------------
-WSLA_fixed <- subset(WSLA, as.numeric(trait_value)>1 & as.numeric(trait_value)<100)
-
-##### gives dataframe with count of species occurances-------------------------------------------------------------------------
-WSLA_species_count <- WSLA_fixed %>% 
-  group_by(binomial) %>% 
-  tally()
-WSLA_fixed <- left_join(WSLA_fixed, WSLA_species_count, by="binomial")
-####joins species count thus species with only 1 count can be identified
-WSLA_species_family_count <- WSLA_fixed%>% 
-  group_by(binomial, scrubbed_family) %>% 
-  tally()
-##### gives dataframe with binomials by family with count
-WSLA_fixed_lrgcount <- subset(WSLA_fixed, as.numeric(n)>1)
-##### makes a datatable with only species with a count over 1
 
 #creation of clean datasets for use in fossil tree integraiton-------------------------------------------------------------------------
 florissant_fossil <- read_csv("./data/raw/FlorissantData_LMA_inc.csv")
@@ -149,7 +111,7 @@ colnames(all_species_df)[colnames(all_species_df)=="unique(final_WSLA_DF$binomia
 
 not_in_WSLA <- subset(tree_tips, !(tree_tips %in% all_species_df$binomial))
 ####subset of stuff that isn't in all.species.df but is in the tree
-#########this subsetting function is so important
+#########this subseting function is so important
 
 tree_WSLA_species <- drop.tip(tree_plant, not_in_WSLA)
 WSLA_tree_tips <- tree_WSLA_species$tip.label
@@ -210,7 +172,7 @@ all_fossil$log_pet_leafarea <- log(all_fossil$log_pet_leafarea)
 all_fossil$log_LMA <- log(all_fossil$log_LMA)
 
 all_fossil<-all_fossil[-c(4, 5)]
-
+#broken from here down nb fix later---------
 royer_data_fossil_int <- rbind(all_fossil,royer_data_fossil_int)
 
 ####royer_data_fossil_int <- aggregate(royer_data_fossil_int[,-1], by=list(royer_data_fossil_int$binomial), mean)
@@ -278,7 +240,7 @@ royer_tax_data_sub <- unique(royer_tax_data_sub)
 royer_tax_data_sub <- na.omit(royer_tax_data_sub)
 royer_tax_full <- left_join(royer_data_LME4_split, royer_tax_data_sub, by= "scrubbed_genus")
 
-#creation of fossil newdata for prediction-------
+#creation of fossil newdata for preidciton-------
 all_fossil_LMEpred <- all_fossil %>%
   separate(binomial, 
            c("scrubbed_genus", "species"))

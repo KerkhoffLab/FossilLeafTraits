@@ -15,6 +15,8 @@ require(magrittr)
 require(data.table)
 require(knitr)
 require(kableExtra)
+require(merTools)
+require(boot)
 ```
 
 
@@ -43,45 +45,7 @@ colnames(final_WSLA_DF)[colnames(final_WSLA_DF)=="n"]<-"count"
 final_WSLA_DF<-final_WSLA_DF[-c(2)]
 ```
 
-We now need to add order and superorder information to final_WSLA_
-```{r}
-## Look up superorder and order with BIEN (literally do not run this code its saved as a csv)
-
-species_df <- data.frame(binomial = unique(final_WLSA_DF$binomial))
-species_df$binomial <- gsub("_", " ", species_df$binomial)
-species_df$binomial <- as.character(species_df$binomial)
-species_df$order <- NA
-species_df$superoder <- NA
-
-species_df2 <- species_df
-
-for (i in 1091:length(species_df$binomial)){
-  
-  cat(paste("Extracting species", i, "\n"))
-  tmp <- BIEN_taxonomy_species(species_df$binomial[i])
-  
-  if (length(tmp)!=0){
-    
-  species_df$order[i] <- unique(tmp$order)
-  species_df$superoder[i] <- unique(tmp$superorder)
-  
-  }else{
-  
-  species_df$order[i] <- NA
-  species_df$superoder[i] <- NA
-    
-  }
-  
- 
-}
-
-species_df$order <- unlist(species_df$order)
-species_df$superoder <- unlist(species_df$superoder)
-names(species_df)[3] <- "superorder"
-
-write.csv(species_df, file="./data/processed/species_df.csv")
-```
-
+Final fixes for final_WSLA_DF before model creation
 ```{r}
 ###assigns values to evergreen and deciduous and eliminates those without phenology 
 final_WSLA_DF$Phenology<-as.factor(final_WSLA_DF$Phenology)
@@ -93,13 +57,66 @@ final_WSLA_DF$Phenology2[indx] <- NA
 species_df<-read.csv("./data/processed/species_df.csv")
 final_WSLA_DF$binomial <- gsub("_", " ", final_WSLA_DF$binomial)
 final_WSLA_DF<-left_join(species_df, final_WSLA_DF, by="binomial")
-final_WSLA_DF<-final_WSLA_DF[-c(1, 5, 6, 7)]
+final_WSLA_DF$log_LMA<-log(final_WSLA_DF$LMA)
+final_WSLA_DF<-final_WSLA_DF[-c(1, 2, 5, 6, 8)]
+final_WSLA_DF<-na.omit(final_WSLA_DF)
+```
 
+Model Creation and selection
+```{r}
+mod1<-glmer(Phenology2~log_LMA+(1+log_LMA|superorder/order/scrubbed_family), family="binomial", data=final_WSLA_DF)
+mod2<-glmer(Phenology2~log_LMA+(1+log_LMA|order/scrubbed_family), family="binomial", data=final_WSLA_DF)
+mod3<-glmer(Phenology2~log_LMA+(1+log_LMA|scrubbed_family), family="binomial", data=final_WSLA_DF)
 
-mod1<-glmer(Phenology2~LMA+(1+LMA|scrubbed_family), family="binomial", data=final_WSLA_DF)
-mod2<-glmer(Phenology~LMA+(LMA|scrubbed_family), family= "binomial", data=final_WSLA_DF)
-mod3<-glmer(Phenology~LMA+(1|scrubbed_family), family="binomial", data=final_WSLA_DF)
+mod4<-glmer(Phenology2~log_LMA+(0+log_LMA|superorder/order/scrubbed_family), family="binomial", data=final_WSLA_DF)
+mod5<-glmer(Phenology2~log_LMA+(0+log_LMA|order/scrubbed_family), family="binomial", data=final_WSLA_DF)
+mod6<-glmer(Phenology2~log_LMA+(0+log_LMA|scrubbed_family), family="binomial", data=final_WSLA_DF)
 
+mod7<-glmer(Phenology2~log_LMA+(1|superorder/order/scrubbed_family), family="binomial", data=final_WSLA_DF)
+mod8<-glmer(Phenology2~log_LMA+(1|order/scrubbed_family), family="binomial", data=final_WSLA_DF)
+mod9<-glmer(Phenology2~log_LMA+(1|scrubbed_family), family="binomial", data=final_WSLA_DF)
 
+mod10<-glmer(Phenology2~log_LMA+(1|scrubbed_family)+(1|order)+(1|superorder), family="binomial", data=final_WSLA_DF)
+mod11<-glmer(Phenology2~log_LMA+(0+log_LMA|scrubbed_family)+(0+log_LMA|order)+(0+log_LMA|superorder), family="binomial", data=final_WSLA_DF)
+mod12<-glmer(Phenology2~log_LMA+(1+log_LMA|scrubbed_family)+(1+log_LMA|order)+(1+log_LMA|superorder), family="binomial", data=final_WSLA_DF)
 
+anova(mod1, mod2, mod3, mod4, mod5, mod6, mod7, mod8, mod9, mod10, mod11, mod12)
+
+ModTable<-data.frame("Model"=c(2, 12, 1, 3, 8, 10, 7, 9, 5, 11, 4, 6), "Rank"=c(1:12), "LogLik"=c(-10576, -10574, -10575, -10597, -12444, -12444, -12444, -12447, -12603, -12602, -12603, -12607), "AIC"=c(21169, 21171, 21171, 21204, 24896, 24897, 24898, 24899, 25214, 25215, 25216, 25220), "dAIC"=c(0, 2, 2, 35, 3727, 3728, 3729, 3730, 4045, 4046, 4047, 4051), "P-value"=c("<2e-16", "<2e-16", 0.3468, "<2e-16", "<2e-16", "<2e-16", "<2e-16", "<2e-16", 1, 1, 1, 1))
+
+table<-kable(ModTable, align='c')%>%
+  kable_styling(bootstrap_options="striped", full_width=F)
+table
+
+```
+
+The best model is found to be mod2 with slope effect of log_LMA and intercept effects of order and scrubbed family. 
+```{r}
+mod2<-glmer(Phenology2~log_LMA+(1+log_LMA|order/scrubbed_family), family="binomial", data=final_WSLA_DF)
+```
+
+Moving forward, we must import the fossil data set with predicted log_lma values and eliminate columns that we do not need for the prediction model. 
+```{r}
+fossilpredictionsfinal<-read.csv("./data/processed/fossilpredictionsfinal.csv")
+fossilpredictionsfinal<-fossilpredictionsfinal[c(5, 6, 8)]
+colnames(fossilpredictionsfinal)[colnames(fossilpredictionsfinal)=="fit"]<- "log_LMA"
+```
+
+Prediction intervals are created for Phenology2 in fossilpredictionsfinal based on model 2. This gives prediction intervals for log LMA that give a more picture of what those values should be. 
+```{r}
+##Prediction Intervals 
+PI<-predictInterval(merMod=mod2, newdata=fossilpredictionsfinal, 
+                    level=0.95, n.sims=1000,
+                    stat="median", type="linear.prediction",
+                    include.resid.var = TRUE)
+PI$fit<-inv.logit(PI$fit)
+PI$upr<-inv.logit(PI$upr)
+PI$lwr<-inv.logit(PI$lwr)
+
+finalpredictions<-cbind(fossilpredictionsfinal,PI)
+
+ggplot(aes(x=log_LMA, y=fit, ymin=lwr, ymax=upr, color=finalpredictions$scrubbed_family), data=finalpredictions) +
+  geom_point() +
+  geom_linerange() +
+  labs(color='scrubbed_family')
 ```

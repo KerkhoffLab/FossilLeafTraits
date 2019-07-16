@@ -85,6 +85,34 @@ royer_lme_sum<- summary(royer_lme)
 royer_lme_sum
 ```
 
+Getting rid of observations in all_fossil_royer_pred that aren't present in royer_tax_new
+```{r}
+library(dataCompareR)
+options(max.print = 1000)
+af<-royer_tax_new$scrubbed_family
+af
+bf<-all_fossil_royer_pred$scrubbed_family
+bf
+
+##whats in all_fossil_royer_pred that isn't in #royer_tax_new
+
+missing<-bf[!(bf%in%af)]
+write.csv(missing, file="./data/missing.csv")
+
+missing<-read.csv("./data/missing.csv")
+missingdata<-subset(missing, select=-X)
+colnames(missingdata)[colnames(missingdata)=="x"]<-"scrubbed_family"
+
+tallymissing<-
+  missingdata%>%
+  group_by(scrubbed_family)%>%
+  tally()
+print.data.frame(tallymissing)
+
+new_fossil_royer_pred2<-all_fossil_royer_pred[!all_fossil_royer_pred$scrubbed_family %in% missingdata$scrubbed_family,]
+
+```
+
 We use pattern matching and replacement to use the lm predictions and models using family as a factor.
 ```{r}
 royer_fossil_dropped <-   all_fossil_royer_pred %>% 
@@ -117,6 +145,12 @@ royer_lmfam_top5 <- lm(log_lma~log_pet_leafarea, data = royer_tax_top5)
 pred_lmfam_top5 <-  as.data.frame(predict(royer_lmfam_top5, interval="prediction"))
 royer_lmfam_top5_bound <-  cbind(royer_tax_top5, pred_lmfam_top5)
 ```
+non linear mixed effects model
+-linear model on logit transform of response variable
+-using non linear fitting and use link function link=logit prob lme4 can do it
+-model comparison process will be the same, find the best by aic likelihood type analysis based on existing data then use to make predictions of fossil lmas
+-model: none, family level, super order, order
+
 
 Plotting log_lma vs log(petiole^2/leafarea) for the top 5 families. 
 ```{r}
