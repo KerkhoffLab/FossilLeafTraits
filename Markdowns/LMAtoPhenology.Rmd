@@ -22,23 +22,8 @@ require(boot)
 
 In order to run this model, we must first load royer_fossil_data_int and WSLA_final_DF. royer_fossil_data_int is our fossil dataset and WSLA_final_DF is our living dataset that will be used to create the prediction model. We must then eliminate unnecessary columns from each dataset and add a tally to the fossil set. 
 ```{r}
-###royer_tax_full
-royer_tax_full<-readRDS(royer_tax_full, file="./data/processed/07_lm4_royer")
-
-tally<-tally(royer_tax_full$scrubbed_family)
-  ###Adding occurence counts to dataset
-royer_tax_count2<-royer_tax_full%>%
-  dplyr::group_by(scrubbed_family)%>%
-  dplyr::mutate(count=n())
-royer_tax_full<-royer_tax_count2
-###Removing observations of singular families n<3 and empty families
-royer_tax_final<-subset(royer_tax_full, count>3 & scrubbed_family!="")
-###Removing columns that are irrelevant
-royer_tax_final<-royer_tax_final[-c(1, 2, 3, 5, 6, 7, 8)]
-
-
 ###final_WSLA_DF
-final_WSLA_DF<-readRDS(final_WSLA_DF, file = "./data/processed/03_finalWSLADF.rds")
+final_WSLA_DF<-readRDS("03_final_WSLA_DF", file = "./data/processed/03_finalWSLADF.rds")
 ###Changing column names so they match up between files
 colnames(final_WSLA_DF)[colnames(final_WSLA_DF)=="n"]<-"count"
 ###Removing columns that are irrelevant
@@ -58,7 +43,7 @@ species_df<-read.csv("./data/processed/species_df.csv")
 final_WSLA_DF$binomial <- gsub("_", " ", final_WSLA_DF$binomial)
 final_WSLA_DF<-left_join(species_df, final_WSLA_DF, by="binomial")
 final_WSLA_DF$log_LMA<-log(final_WSLA_DF$LMA)
-final_WSLA_DF<-final_WSLA_DF[-c(1, 2, 5, 6, 8)]
+final_WSLA_DF<-final_WSLA_DF[-c(1, 5, 6, 8)]
 final_WSLA_DF<-na.omit(final_WSLA_DF)
 ```
 
@@ -93,6 +78,7 @@ table
 The best model is found to be mod2 with slope effect of log_LMA and intercept effects of order and scrubbed family. 
 ```{r}
 mod2<-glmer(Phenology2~log_LMA+(1+log_LMA|order/scrubbed_family), family="binomial", data=final_WSLA_DF)
+summary(mod2)
 ```
 
 Moving forward, we must import the fossil data set with predicted log_lma values and eliminate columns that we do not need for the prediction model. 
@@ -112,11 +98,20 @@ PI<-predictInterval(merMod=mod2, newdata=fossilpredictionsfinal,
 PI$fit<-inv.logit(PI$fit)
 PI$upr<-inv.logit(PI$upr)
 PI$lwr<-inv.logit(PI$lwr)
-
 finalpredictions<-cbind(fossilpredictionsfinal,PI)
 
 ggplot(aes(x=log_LMA, y=fit, ymin=lwr, ymax=upr, color=finalpredictions$scrubbed_family), data=finalpredictions) +
   geom_point() +
   geom_linerange() +
   labs(color='scrubbed_family')
+
+ggplot(aes(x=log_LMA, y=fit, ymin=lwr, ymax=upr, color=finalpredictions$scrubbed_family), data=finalpredictions) +
+  geom_point() +
+  geom_linerange() +
+  labs(color='scrubbed_family')
+
+ggplot(finalpredictions, aes(log_LMA, fit, group=(scrubbed_family), color=scrubbed_family)) + 
+  geom_point() + 
+  stat_smooth(method="glm", method.args=list(family="binomial"), se=FALSE)
+
 ```
