@@ -1,3 +1,14 @@
+require(BIEN)
+require(plyr)
+require(tidyr) 
+require(dplyr)
+require(mosaic)
+require(stringr)
+require(lme4)
+require(magrittr)
+require(data.table)
+require(knitr)
+require(kableExtra) 
 ###In order to run this model, we must first fix the royer_tax_full 
 ###data set so it does not contain NA values, all "Unknown" values 
 ###show up as blanks, and occurence data is shown alongside each observation. 
@@ -21,7 +32,7 @@ royer_tax_count
 ###Removing observations of singular families n<3 and empty families
 royer_tax_new<-subset(royer_tax_count, count>3 & scrubbed_family!="")
 
-saveRDS(royer_tax_new, file="./data/processed/royer_tax_new.rds")
+write.csv(royer_tax_new, file="./data/processed/royer_tax_new.csv")
 
 
 ###Moving forward, we must create the fossil data set made up of 3 different data sets,
@@ -59,5 +70,5 @@ colnames(all_fossil_royer_pred)[colnames(all_fossil_royer_pred)=="LMA (g/m^2)"] 
 
 all_fossil_royer_pred$log_pet_leafarea<-log(all_fossil_royer_pred$pet_leafarea)
 
-saveRDS(all_fossil_royer_pred, file="./data/processed/all_fossil_royer_pred.rds")
+write.csv(all_fossil_royer_pred, file="./data/processed/all_fossil_royer_pred.csv")
 

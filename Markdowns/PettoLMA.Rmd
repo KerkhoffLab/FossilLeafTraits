@@ -5,7 +5,7 @@ output: html_document
 
 
 The goal of this markdown is to show the paths taken to creating a model based off of a living data set that makes prediction intervals for LMA of a fossil data set. Once LMA is found, we will be able to gain phylogenetic information from a model that predicts phylogeny based off of LMA. This is being done to work on improving fossil species predictions when using taxonomic analysis of functional traits. 
-
+ 
 
 ```{r}
 require(BIEN)
@@ -19,12 +19,14 @@ require(magrittr)
 require(data.table)
 require(knitr)
 require(kableExtra)
+library(dataCompareR)
+require(utils)
 ```
 
 First we must load all the processed data
 ```{r}
-royer_tax_new<-readRDS(royer_tax_new, file="../data/processed/royer_tax_new.rds")
-all_fossil_royer_pred<-readRDS(all_fossil_royer_pred, file="../data/processed/all_fossil_royer_pred.rds")
+royer_tax_new<-read.csv(file="../data/processed/royer_tax_new.csv")
+all_fossil_royer_pred<-read.csv(file="../data/processed/all_fossil_royer_pred.csv")
 ```
 
 We must determine which mixed effects model is best suited to make prediction intervals. Using intercept effects super order, order, and scrubbed family and a slope effect of log pet leaf area, we determine the most suitable model by running a maximum likelihood ANOVA test and looking at the outputs in LogLik, AIC, dAIC, and p value. These are shown in the following table.
@@ -51,7 +53,6 @@ model3<-lmer(log_lma~log_pet_leafarea + (1+log_pet_leafarea|scrubbed_family), da
 
 In order to compare our fossil data set to the living data set, we must omit predictions from all_fossil_royer_pred that aren't present in royer_tax_new so all observations in the fossil data set are accounted for. 
 ```{r}
-library(dataCompareR)
 options(max.print = 1000)
 af<-royer_tax_new$scrubbed_family
 af
@@ -61,9 +62,9 @@ bf
 ##whats in all_fossil_royer_pred that isn't in #royer_tax_new
 
 missing<-bf[!(bf%in%af)]
-write.csv(missing, file="./data/missing.csv")
+write.csv(missing, file="../data/missing.csv")
 
-missing<-read.csv("./data/missing.csv")
+missing<-read.csv("../data/missing.csv")
 missingdata<-subset(missing, select=-X)
 colnames(missingdata)[colnames(missingdata)=="x"]<-"scrubbed_family"
 
@@ -96,5 +97,5 @@ ggplot(aes(x=log_pet_leafarea, y=fit, ymin=lwr, ymax=upr, color=new_fossil_royer
 Save fossil predictions and eliminate unnecessary columns
 ```{r}
 fossilpredictionsfinal<-fossilpredictions[-c(2, 4, 5, 6, 7, 8)]
-write.csv(fossilpredictionsfinal, file="./data/processed/fossilpredictionsfinal.csv")
+write.csv(fossilpredictionsfinal, file="../data/processed/fossilpredictionsfinal.csv")
 ```
