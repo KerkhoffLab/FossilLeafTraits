@@ -17,6 +17,9 @@ require(knitr)
 require(kableExtra)
 require(merTools)
 require(boot)
+require(cowplot)
+require(ggridges)
+require(tidyverse)
 ```
 Loading processed data
 ```{r}
@@ -79,4 +82,44 @@ ggplot(finalpredictions, aes(log_LMA, fit, group=(scrubbed_family), color=scrubb
   geom_point() + 
   stat_smooth(method="glm", method.args=list(family="binomial"), se=FALSE)
 
+```
+
+Joy Plot -- phenology vs log_lma
+```{r}
+library(ggplot2)
+library(ggridges)
+
+final_WSLA_DF<-readRDS(file="../data/processed/final_WSLA_DF.rds")
+
+final_WSLA_DF_Unique<-unique(final_WSLA_DF)
+
+final_WSLA_DF1<-subset(final_WSLA_DF_Unique, Phenology2==1)
+final_WSLA_DF2<-subset(final_WSLA_DF_Unique, Phenology2==0)
+
+intersect<-intersect(final_WSLA_DF1$scrubbed_family, final_WSLA_DF2$scrubbed_family)
+intersect<-as.data.frame(intersect)
+colnames(intersect)[colnames(intersect)=="intersect"]<-"scrubbed_family"
+final_WSLA_DF<-final_WSLA_DF1[final_WSLA_DF$scrubbed_family %in% intersect$scrubbed_family,]
+
+final_WSLA_DF1<-final_WSLA_DF1[final_WSLA_DF1$scrubbed_family %in% intersect$scrubbed_family,]
+final_WSLA_DF2<-final_WSLA_DF2[final_WSLA_DF2$scrubbed_family %in% intersect$scrubbed_family,]
+
+
+ggplot1<-ggplot(final_WSLA_DF1, aes(x = log_LMA, y = scrubbed_family)) + geom_density_ridges(scale = 0.9)
+ggplot2<-ggplot(final_WSLA_DF2,aes(x = log_LMA, y = scrubbed_family)) + geom_density_ridges(scale = 0.9)
+
+plot_grid(ggplot1, ggplot2, labels="AUTO")
+
+
+
+
+data<-rbind(final_WSLA_DF1, final_WSLA_DF2)
+ggplot(data, aes(y=scrubbed_family,
+                      x=log_LMA,
+                      fill=as.factor(Phenology2))) +
+  geom_density_ridges(scale=2) +
+  scale_y_discrete(expand = c(0.01, 0)) +  
+  scale_x_continuous(expand = c(0, 0))+
+  scale_fill_manual(values = c("salmon4", "darkgreen"), name="Phenology",
+                         labels=c("Deciduous", "Evergreen"))
 ```
