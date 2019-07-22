@@ -1,0 +1,107 @@
+---
+title: "ModelsWOTax"
+output: html_document
+---
+
+The purpose of this markdown is to create functions predicting LMA from petiole leaf area and phenology from LMA without taxonomic information. 
+
+```{r}
+require(BIEN)
+require(plyr)
+require(tidyr) 
+require(dplyr)
+require(mosaic)
+require(stringr)
+require(lme4)
+require(magrittr)
+require(data.table)
+require(knitr)
+require(kableExtra)
+library(dataCompareR)
+require(utils)
+require(ggplot2)
+require(merTools)
+require(stats)
+require(boot)
+```
+
+First we'll do petiole width to LMA
+```{r}
+royer_tax_new<-read.csv(file="./data/processed/royer_tax_new.csv")
+all_fossil_royer_pred<-read.csv(file="./data/processed/all_fossil_royer_pred.csv")
+
+```
+
+```{r}
+all_fossil_royer_pred<-all_fossil_royer_pred[c(13)]
+royer_tax_new<-royer_tax_new<-royer_tax_new[c(7, 8)]
+```
+
+Model of log_lma based on log_pet_leafarea
+```{r}
+modellma1<-lm(log_lma~log_pet_leafarea, data=royer_tax_new)
+```
+
+
+```{r}
+PI2<-predict(modellma1, newdata=all_fossil_royer_pred, 
+                    interval="prediction")
+PI2
+modelpredictions<-cbind(all_fossil_royer_pred,PI2)
+ggplot(aes(x=log_pet_leafarea, y=fit, ymin=lwr, ymax=upr), data=modelpredictions)+
+  geom_point() +
+  geom_linerange()
+
+write.csv(modelpredictions, file="./data/processed/modelpredictions.csv")
+
+
+
+```
+
+Now we will predict phenology from the LMA predictions 
+```{r}
+modelpredictions2<-read.csv("./data/processed/modelpredictions.csv")
+final_WSLA_DF<-readRDS(file="./data/processed/final_WSLA_DF.rds")
+```
+
+```{r}
+modellma2<-glm(Phenology2~log_LMA, data=final_WSLA_DF, family=binomial)
+```
+
+```{r}
+colnames(modelpredictions2)[colnames(modelpredictions2)=="fit"]<-"log_LMA"
+modelpredictions2<-modelpredictions2[-c(1, 4, 5)]
+```
+
+
+```{r}
+ilink <- family(modellma2)$linkinv
+pd <- with(modelpredictions2,
+           data.frame(log_LMA = seq(min(log_LMA), max(log_LMA),
+                                       length = 100)))
+pd <- cbind(pd, predict(modellma2, pd, type = "link", se.fit = TRUE)[1:2])
+pd <- transform(pd, Fitted = ilink(fit), Upper = ilink(fit + (2 * se.fit)),
+                Lower = ilink(fit - (2 * se.fit)))
+
+pd2 <- with(final_WSLA_DF,
+           data.frame(log_LMA = seq(min(log_LMA), max(log_LMA),
+                                       length = 100)))
+pd2 <- cbind(pd2, predict(modellma2, pd2, type = "link", se.fit = TRUE)[1:2])
+pd2 <- transform(pd2, Fitted = ilink(fit), Upper = ilink(fit + (2 * se.fit)),
+                Lower = ilink(fit - (2 * se.fit)))
+
+
+
+ggplot(pd, aes(x = log_LMA, y = as.numeric(Fitted))) +
+    geom_ribbon(data = pd2, aes(ymin = Lower, ymax = Upper, x = log_LMA),
+                fill = "red", alpha = 0.8, inherit.aes = FALSE) +
+    geom_line(data = pd2, aes(y = Fitted, x = log_LMA)) +
+    geom_point() +
+    labs(y = "Probability of Phenology")
+
+
+
+
+write.csv(modelpredictions2, file="./data/processed/modelpredictionsPHEN.csv")
+
+```

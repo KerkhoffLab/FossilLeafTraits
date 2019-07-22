@@ -37,7 +37,7 @@ final_WSLA_DF$Phenology2[indx] <- NA
 species_df<-read.csv("./data/processed/species_df.csv")
 final_WSLA_DF$binomial <- gsub("_", " ", final_WSLA_DF$binomial)
 final_WSLA_DF<-left_join(species_df, final_WSLA_DF, by="binomial")
-final_WSLA_DF$log_LMA<-log(final_WSLA_DF$LMA)
+final_WSLA_DF$log_LMA<-log(final_WSLA_DF$LMA) 
 final_WSLA_DF<-final_WSLA_DF[-c(1, 5, 6, 8)]
 final_WSLA_DF<-na.omit(final_WSLA_DF)
  
@@ -47,8 +47,9 @@ saveRDS(final_WSLA_DF, file="./data/processed/final_WSLA_DF.rds")
 ###Moving forward, we must import the fossil data set with predicted log_lma values 
 ###and eliminate columns that we do not need for the prediction model. 
 
-fossilpredictionsfinal<-read.csv("./data/processed/fossilpredictionsfinal.csv")
-fossilpredictionsfinal<-fossilpredictionsfinal[c(5, 6, 8)]
-colnames(fossilpredictionsfinal)[colnames(fossilpredictionsfinal)=="fit"]<- "log_LMA"
+PettoLMAfossilpredictionsfinal<-read.csv("./data/processed/fossilpredictionsfinal.csv")
+PettoLMAfossilpredictionsfinal<-PettoLMAfossilpredictionsfinal[c(5, 6, 7, 8, 9)]
+colnames(PettoLMAfossilpredictionsfinal)[colnames(PettoLMAfossilpredictionsfinal)=="fit"]<- "log_LMA"
 
-saveRDS(fossilpredictionsfinal, file="./data/processed/fossilpredictionsfinal.rds")
+saveRDS(PettoLMAfossilpredictionsfinal, file="./data/processed/LMAtoPhenfossilpredictionsfinal.rds")
+

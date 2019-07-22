@@ -5,7 +5,7 @@ colnames(final_WSLA_DF)[colnames(final_WSLA_DF)=="n"]<-"count"
 
 
 ###assigns values to evergreen and deciduous and eliminates those without phenology 
-final_WSLA_DF$Phenology<-as.factor(final_WSLA_DF$Phenology)
+final_WSLA_DF$Phenology<-as.factor(final_WSLA_DF$Phenology) 
 final_WSLA_DF$Phenology2<-ifelse(final_WSLA_DF$Phenology == "EV", 1, 0)
 indx <- which(final_WSLA_DF$Phenology == "D_EV")
 final_WSLA_DF$Phenology2[indx] <- NA
@@ -85,3 +85,4 @@ mog18<-glmer(Phenology2~log_LMA+log_SLA+(0+log_LMA|scrubbed_family), family="bin
 mog19<-glmer(Phenology2~log_LMA+log_SLA+(0+log_LMA|scrubbed_family)+(0+log_LMA|order)+(0+log_LMA|superorder), family="binomial", data=final_WSLA_DF)
 mog20<-glmer(Phenology2~log_LMA+log_SLA+(1+log_LMA|scrubbed_family)+(1+log_LMA|order)+(1+log_LMA|superorder), family="binomial", data=final_WSLA_DF)
 
+##LA

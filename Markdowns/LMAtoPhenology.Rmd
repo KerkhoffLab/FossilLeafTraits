@@ -21,7 +21,7 @@ require(boot)
 Loading processed data
 ```{r}
 final_WSLA_DF<-readRDS(file="../data/processed/final_WSLA_DF.rds")
-fossilpredictionsfinal<-readRDS(file="../data/processed/fossilpredictionsfinal.rds")
+LMAtoPhenfossilpredictionsfinal<-readRDS(file="../data/processed/LMAtoPhenfossilpredictionsfinal.rds")
 ```
 
 Model Creation and selection
@@ -44,7 +44,7 @@ mod12<-glmer(Phenology2~log_LMA+(1+log_LMA|scrubbed_family)+(1+log_LMA|order)+(1
 
 anova(mod1, mod2, mod3, mod4, mod5, mod6, mod7, mod8, mod9, mod10, mod11, mod12)
 
-ModTable<-data.frame("Model"=c(2, 12, 1, 3, 8, 10, 7, 9, 5, 11, 4, 6), "Rank"=c(1:12), "LogLik"=c(-10576, -10574, -10575, -10597, -12444, -12444, -12444, -12447, -12603, -12602, -12603, -12607), "AIC"=c(21169, 21171, 21171, 21204, 24896, 24897, 24898, 24899, 25214, 25215, 25216, 25220), "dAIC"=c(0, 2, 2, 35, 3727, 3728, 3729, 3730, 4045, 4046, 4047, 4051), "P-value"=c("<2e-16", "<2e-16", 0.3468, "<2e-16", "<2e-16", "<2e-16", "<2e-16", "<2e-16", 1, 1, 1, 1))
+ModTable<-data.frame("Model"=c(2, 12, 1, 3, 8, 10, 7, 9, 5, 11, 4, 6), "Rank"=c(1:12), "Slope Effects"=c("LLMA", "LLMA", "LLMA", "LLMA", "", "", "", "","LLMA", "LLMA", "LLMA", "LLMA" ), "Intercept Effects"=c("O, SF", "SO, O, SF", "SO, O, SF", "SF", "O, SF", "SO, O, SF", "SO, O, SF", "SF", "O, SF", "SO, O, SF","SO, O, SF", "SF"), "LogLik"=c(-10576, -10574, -10575, -10597, -12444, -12444, -12444, -12447, -12603, -12602, -12603, -12607), "AIC"=c(21169, 21171, 21171, 21204, 24896, 24897, 24898, 24899, 25214, 25215, 25216, 25220), "dAIC"=c(0, 2, 2, 35, 3727, 3728, 3729, 3730, 4045, 4046, 4047, 4051), "P-value"=c("<2e-16", "<2e-16", 0.3468, "<2e-16", "<2e-16", "<2e-16", "<2e-16", "<2e-16", 1, 1, 1, 1))
 
 table<-kable(ModTable, align='c')%>%
   kable_styling(bootstrap_options="striped", full_width=F)
@@ -61,19 +61,14 @@ summary(mod2)
 Prediction intervals are created for Phenology2 in fossilpredictionsfinal based on model 2. This gives prediction intervals for log LMA that give a more picture of what those values should be. 
 ```{r}
 ##Prediction Intervals 
-PI<-predictInterval(merMod=mod2, newdata=fossilpredictionsfinal, 
+PI<-predictInterval(merMod=mod2, newdata=LMAtoPhenfossilpredictionsfinal, 
                     level=0.95, n.sims=1000,
                     stat="median", type="linear.prediction",
                     include.resid.var = TRUE)
-PI$fit<-inv.logit(PI$fit)
+PI$fit<-inv.logit(PI$fit) 
 PI$upr<-inv.logit(PI$upr)
 PI$lwr<-inv.logit(PI$lwr)
-finalpredictions<-cbind(fossilpredictionsfinal,PI)
-
-ggplot(aes(x=log_LMA, y=fit, ymin=lwr, ymax=upr, color=finalpredictions$scrubbed_family), data=finalpredictions) +
-  geom_point() +
-  geom_linerange() +
-  labs(color='scrubbed_family')
+finalpredictions<-cbind(LMAtoPhenfossilpredictionsfinal,PI)
 
 ggplot(aes(x=log_LMA, y=fit, ymin=lwr, ymax=upr, color=finalpredictions$scrubbed_family), data=finalpredictions) +
   geom_point() +

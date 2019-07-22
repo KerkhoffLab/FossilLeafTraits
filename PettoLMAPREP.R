@@ -57,7 +57,7 @@ all_fossil$binomial <- str_replace_all(all_fossil$binomial,"\\s+","_")
 all_fossil <- all_fossil[-c(1,2)]
 
 all_fossil_LMEpred <- all_fossil %>%
-  separate(binomial, 
+  separate(binomial,
            c("scrubbed_genus", "species"))
 all_fossil_royer_pred <- left_join(all_fossil_LMEpred, fossil_tax, by = "scrubbed_genus")
 

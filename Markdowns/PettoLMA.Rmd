@@ -21,6 +21,8 @@ require(knitr)
 require(kableExtra)
 library(dataCompareR)
 require(utils)
+require(ggplot2)
+require(merTools)
 ```
 
 First we must load all the processed data
@@ -39,6 +41,7 @@ model5<-lmer(log_lma~log_pet_leafarea + (1|order/scrubbed_family), data=royer_ta
 model6<-lmer(log_lma~log_pet_leafarea + (1|scrubbed_family), data=royer_tax_new)
 
 modcompare<-anova(model1, model2, model3, model4, model5, model6)
+modcompare
 ModelTable2<-data.frame("Model"=c(6, 3, 5, 2, 4, 1), "Rank"=c(1:6), "Slope Effects"=c("", "LPL","LPL", "", "LPL", ""), "Intercept Effects"=c("SF", "SF", "O, SF", "O, SF", "SO, O, SF", "SO, O, SF"), "LogLik"=c(-187.25, -184.00, -187.20, -183.69, -187.20, -183.32), "AIC"=c(382.49, 380.00, 384.40, 385.37, 386.40, 390.64), "dAIC"=c(0, -2.49, 4.40, 5.37, 6.40, 10.64))
 
 table<-kable(ModelTable2, align='c')%>%
@@ -80,14 +83,12 @@ new_fossil_royer_pred2<-all_fossil_royer_pred[!all_fossil_royer_pred$scrubbed_fa
 Then, prediction intervals are created for LMA in new_fossil_royer_pred2 based on model 3. The dataset contains observations for expected LMA, but this gives prediction intervals for log LMA that give a more picture of what those values should be. 
 ```{r}
 ##Prediction Intervals 
-require(merTools)
 PI<-predictInterval(merMod=model3, newdata=new_fossil_royer_pred2, 
                     level=0.95, n.sims=1000,
                     stat="median", type="linear.prediction",
                     include.resid.var = TRUE)
 PI
 fossilpredictions<-cbind(new_fossil_royer_pred2,PI)
-library(ggplot2);
 ggplot(aes(x=log_pet_leafarea, y=fit, ymin=lwr, ymax=upr, color=new_fossil_royer_pred2$scrubbed_family), data=fossilpredictions) +
   geom_point() +
   geom_linerange() +
@@ -97,5 +98,5 @@ ggplot(aes(x=log_pet_leafarea, y=fit, ymin=lwr, ymax=upr, color=new_fossil_royer
 Save fossil predictions and eliminate unnecessary columns
 ```{r}
 fossilpredictionsfinal<-fossilpredictions[-c(2, 4, 5, 6, 7, 8)]
-write.csv(fossilpredictionsfinal, file="../data/processed/fossilpredictionsfinal.csv")
+write.csv(fossilpredictionsfinal, file="../data/processed/PettoLMApredictionsfinal.csv")
 ```
