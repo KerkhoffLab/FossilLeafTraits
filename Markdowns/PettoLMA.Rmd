@@ -52,6 +52,9 @@ table
 The best model is found to be model 3, with a slope effect of log pet leaf area and intercept effect of scrubbed family.
 ```{r}
 model3<-lmer(log_lma~log_pet_leafarea + (1+log_pet_leafarea|scrubbed_family), data=royer_tax_new)
+summary(model3)
+require(piecewiseSEM)
+rsquaredGLMM(model3)
 ```
 
 In order to compare our fossil data set to the living data set, we must omit predictions from all_fossil_royer_pred that aren't present in royer_tax_new so all observations in the fossil data set are accounted for. 
@@ -92,7 +95,12 @@ fossilpredictions<-cbind(new_fossil_royer_pred2,PI)
 ggplot(aes(x=log_pet_leafarea, y=fit, ymin=lwr, ymax=upr, color=new_fossil_royer_pred2$scrubbed_family), data=fossilpredictions) +
   geom_point() +
   geom_linerange() +
-  labs(color='scrubbed_family')
+  labs(color='Family')+
+  xlab('log(Petiole Leaf Area)')+
+  ylab('log(Leaf Mass Area)')+
+  labs(title = 'Leaf Mass Predictions from Petiole Leaf Area with Family Information')
+###save as PDF
+ggsave("PettoLMAFigure.pdf")
 ```
 
 Save fossil predictions and eliminate unnecessary columns

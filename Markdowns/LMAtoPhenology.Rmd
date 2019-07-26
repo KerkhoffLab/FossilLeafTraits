@@ -80,11 +80,15 @@ ggplot(aes(x=log_LMA, y=fit, ymin=lwr, ymax=upr, color=finalpredictions$scrubbed
 
 ggplot(finalpredictions, aes(log_LMA, fit, group=(scrubbed_family), color=scrubbed_family)) + 
   geom_point() + 
-  stat_smooth(method="glm", method.args=list(family="binomial"), se=FALSE)
-
+  stat_smooth(method="glm", method.args=list(family="binomial"), se=FALSE)+
+  xlab('log(Leaf Mass Area)')+
+  ylab('Predicted Phenology')+
+  labs(title = 'Predicted Phenology from LMA with Family Information')+
+  labs(color='Family')
+ggsave("LMAtoPhenFigure.pdf")
 ```
 
-Joy Plot -- phenology vs log_lma
+Joy Plot -- phenology vs log_lma with extant data
 ```{r}
 library(ggplot2)
 library(ggridges)
@@ -104,15 +108,6 @@ final_WSLA_DF<-final_WSLA_DF1[final_WSLA_DF$scrubbed_family %in% intersect$scrub
 final_WSLA_DF1<-final_WSLA_DF1[final_WSLA_DF1$scrubbed_family %in% intersect$scrubbed_family,]
 final_WSLA_DF2<-final_WSLA_DF2[final_WSLA_DF2$scrubbed_family %in% intersect$scrubbed_family,]
 
-
-ggplot1<-ggplot(final_WSLA_DF1, aes(x = log_LMA, y = scrubbed_family)) + geom_density_ridges(scale = 0.9)
-ggplot2<-ggplot(final_WSLA_DF2,aes(x = log_LMA, y = scrubbed_family)) + geom_density_ridges(scale = 0.9)
-
-plot_grid(ggplot1, ggplot2, labels="AUTO")
-
-
-
-
 data<-rbind(final_WSLA_DF1, final_WSLA_DF2)
 ggplot(data, aes(y=scrubbed_family,
                       x=log_LMA,
@@ -121,5 +116,10 @@ ggplot(data, aes(y=scrubbed_family,
   scale_y_discrete(expand = c(0.01, 0)) +  
   scale_x_continuous(expand = c(0, 0))+
   scale_fill_manual(values = c("salmon4", "darkgreen"), name="Phenology",
-                         labels=c("Deciduous", "Evergreen"))
+                         labels=c("Deciduous", "Evergreen"))+
+  xlab('log(Leaf Mass Area)')+
+  ylab('Family')+
+  labs(title="LMA and Phenology of Extant Data")
+
+ggsave("LMAtoPhenFigure2.pdf")
 ```

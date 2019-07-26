@@ -40,6 +40,7 @@ royer_tax_new<-royer_tax_new<-royer_tax_new[c(7, 8)]
 Model of log_lma based on log_pet_leafarea
 ```{r}
 modellma1<-lm(log_lma~log_pet_leafarea, data=royer_tax_new)
+summary(modellma1)
 ```
 
 
@@ -50,8 +51,11 @@ PI2
 modelpredictions<-cbind(all_fossil_royer_pred,PI2)
 ggplot(aes(x=log_pet_leafarea, y=fit, ymin=lwr, ymax=upr), data=modelpredictions)+
   geom_point() +
-  geom_linerange()
-
+  geom_linerange()+
+  xlab('log(Petiole Leaf Area)')+
+  ylab('log(Leaf Mass Area)')+
+  labs(title="Leaf Mass Predictions from Petiole Leaf Area without Family Information")
+ggsave("PettoLMAWOFamFigure.pdf")
 write.csv(modelpredictions, file="./data/processed/modelpredictions.csv")
 
 
@@ -66,6 +70,7 @@ final_WSLA_DF<-readRDS(file="./data/processed/final_WSLA_DF.rds")
 
 ```{r}
 modellma2<-glm(Phenology2~log_LMA, data=final_WSLA_DF, family=binomial)
+r.squaredGLMM(modellma2)
 ```
 
 ```{r}
@@ -95,10 +100,12 @@ pd2 <- transform(pd2, Fitted = ilink(fit), Upper = ilink(fit + (2 * se.fit)),
 ggplot(pd, aes(x = log_LMA, y = as.numeric(Fitted))) +
     geom_ribbon(data = pd2, aes(ymin = Lower, ymax = Upper, x = log_LMA),
                 fill = "red", alpha = 0.8, inherit.aes = FALSE) +
-    geom_line(data = pd2, aes(y = Fitted, x = log_LMA)) +
-    geom_point() +
-    labs(y = "Probability of Phenology")
-
+  geom_line(data = pd2, aes(y = Fitted, x = log_LMA)) +
+  geom_point() +
+  ylab("Probability of Phenology")+
+  xlab('log(Leaf Mass Area)')+
+  labs(title="Predicted Phenology from LMA without Family Information")
+ggsave("PhentoLMAWOFamFigure.pdf")
 
 
 
