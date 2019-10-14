@@ -1,6 +1,7 @@
 ---
-title: "Petiole and Leaf Area to LMA"
+title: "Taxon-specifc Estimates of Fossil LMA"
 output: html_document
+author: Grace Ryder and Drew Kerkhoff
 ---
 
 ```{r setup, include=FALSE}
@@ -9,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Data Prep
 Loading require packages
-```{r}
+```{r, echo=FALSE}
 require(BIEN)
 require(plyr)
 require(tidyr) 
@@ -21,7 +22,7 @@ require(magrittr)
 ```
 
 First, we need to fix the fossil data necessary for prediction. Fossil data is compared to living data in order to come to conclusions when identifying the families of found fossils based off of LMA. The data has previously been adjusted to fix misspelled names, combine observations, and organize all of the information. 
-```{r}
+```{r, echo=FALSE}
 florissant_fossil_int <- readRDS("../data/processed/04_florissant_fossil_clean.rds")
 renova_fossil_int <- readRDS("../data/processed/04_renova_fossil_clean.rds")
 bridgecreek_fossil_int <- readRDS("../data/processed/04_bridgecreek_fossil_clean.rds")

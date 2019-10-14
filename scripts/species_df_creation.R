@@ -1,7 +1,7 @@
 ###We now need to add order and superorder information to final_WSLA_
 ## Look up superorder and order with BIEN (literally do not run this code its saved as a csv)
 
-species_df <- data.frame(binomial = unique(final_WLSA_DF$binomial))
+species_df <- data.frame(binomial = unique(final_WSLA_DF$binomial))
 species_df$binomial <- gsub("_", " ", species_df$binomial)
 species_df$binomial <- as.character(species_df$binomial)
 species_df$order <- NA

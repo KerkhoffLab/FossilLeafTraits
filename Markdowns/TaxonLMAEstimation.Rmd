@@ -1,0 +1,200 @@
+---
+title: "Taxon-specifc Estimates of Fossil LMA"
+output: html_document
+author: Grace Ryder and Drew Kerkhoff
+---
+
+Leaf mass per area ($LMA$) is a valuable measure of plant ecological strategy that can be estimated for fossil taxa based on the measured leaf area and petiole width of fossilized leaves. Here, we ask whether we can improve estimates of $LMA$ by taking the taxonomic identity of a specimen into account. If the morphological and biomechanical characteristics of leaves are heritable and to some extent evolutionarily conserved, it makes sense that the residual variation in $LMA$ based on petiole and leaf area measurements would carry a phylogenetic signal. However, placing fossil specimens into a phylogeny is both technically difficult and introduces uncertainty. Since recent revisions of the angiosperm phylogeny have yielded largely monophyletic named clades at least to the family level, we decided to use a taxonomic approach as a means of incorporating this potential phylogenetic signal into fossil LMA estimates. Specifically, we use taxonomically nested linear mixed-effects models to estimate fossil $LMA$, and compare alternative model formulations using a likelihood framework.
+ 
+
+```{r, echo=FALSE, include=FALSE}
+require(BIEN)
+require(plyr)
+require(tidyr) 
+require(dplyr)
+require(mosaic)
+require(stringr)
+require(lme4)
+require(magrittr)
+require(data.table)
+require(knitr)
+require(kableExtra)
+library(dataCompareR)
+require(utils)
+require(ggplot2)
+require(merTools)
+require(MuMIn)
+```
+
+## Data 
+
+The calibration data for extant species of angiosperms are drawn from Royer et al. (2007), with the taxonomy checked using the Taxonomic Name Resolution Service (TNRS). We also utilize fossil data from Royer et al. (2007), augmented by some fossil petiole and leaf area measurements provided by Matt Butrim.
+
+```{r}
+royer_tax_new<-read.csv(file="../data/processed/royer_tax_new.csv")
+all_fossil_royer_pred<-read.csv(file="../data/processed/all_fossil_royer_pred.csv")
+```
+
+## Model Selection
+
+We must determine which mixed effects model is best suited to make $LMA$ estimates, using $log(LMA)$ as the response variable and $log(w_p^2/A_L)$ as the fixed effect, where $w_p$ is the width of the petiole and $A_L$ is the area of the leaf blade. We then include taxonomic information (superorder, order, or family) as nested random effects on either the slope or intercept. Our most inclusive model uses slope and intercept effects for superorder, order, and family, and we consider all nested simpler alternative models. We then determine the most suitable model by running a maximum likelihood and estimating Akaiki's Information Criterion. These are shown in the following table.
+```{r, warning=FALSE, error=FALSE}
+model1<-lmer(log_lma~log_pet_leafarea + (log_pet_leafarea|superorder/order/scrubbed_family), data=royer_tax_new)
+model2<-lmer(log_lma~log_pet_leafarea + (log_pet_leafarea|order/scrubbed_family), data=royer_tax_new)
+model3<-lmer(log_lma~log_pet_leafarea + (log_pet_leafarea|scrubbed_family), data=royer_tax_new)
+model4<-lmer(log_lma~log_pet_leafarea + (1|superorder/order/scrubbed_family), data=royer_tax_new)
+model5<-lmer(log_lma~log_pet_leafarea + (1|order/scrubbed_family), data=royer_tax_new)
+model6<-lmer(log_lma~log_pet_leafarea + (1|scrubbed_family), data=royer_tax_new)
+model7<-lm(log_lma~log_pet_leafarea, data=royer_tax_new)
+modcompare<-anova(model1, model2, model3, model4, model5, model6, model7)
+```
+
+```{r, echo=FALSE}
+#modcompare
+ModelTable2<-data.frame("Rank"=c(1:7), "Model"=c(3, 6, 5, 2, 4, 1,7), "Slope Effects"=c("F", "","", "O, F", "", "SO, O, F",""), "Intercept Effects"=c("F", "F", "O, F", "O, F", "SO, O, F", "SO, O, F",""), "LogLik"=c(-184.00, -187.25, -187.20, -183.69, -187.20, -183.32, -217.84), "AIC"=c(380.00, 382.49, 384.40, 385.37, 386.40, 390.64, 441.68), "dAIC"=c(0, 2.49, 4.40, 5.37, 6.40, 10.64, 61.68))
+
+table<-kable(ModelTable2, align='c')%>%
+  kable_styling(bootstrap_options="striped", full_width=F)
+table
+```
+
+## Comparison of Taxonomic vs. Non-taxonomic models
+
+The best model retains a slope and an intercept effect for family: model3 above. While the model ignoring taxonomy explains a decent fraction of the variation in $log(LMA)$ ($R^2 = 0.54$), accounting for random slope and intercept effects increases the overall conditional $R_c^2$ value to 0.65, with a marginal $R_m^2 = 0.51$ made up by the fixed effect of $log(w_p^2/A_L)$. The model using only an intercept term for family is only marginally worse, with $R_c^2 =0.61$ and $R_m^2 = 0.50$.
+
+But whether we use family as a random effect on slope or intercept, the taxonomically informed model outperforms the taxonomy-free model.
+
+```{r, warning=FALSE}
+summary(model7)$r.squared
+r.squaredGLMM(model3)
+r.squaredGLMM(model6)
+```
+
+## Random Effects
+
+We can examine differences among families by looking at the slope and intercept effects estimates for each family. For the model with family specific effects on both slope and intercept, we find the following:
+
+```{r}
+dotplot(ranef(model3,condVar=TRUE))
+```
+
+Here we can see variation in the slope (these are deviations from the fixed effect estimate of each parameter). Also note that the variation is positively correlated: families with more positive slopes also tend to have more positive intercepts.
+
+
+If we look at the simpler model, with only the intercept term varying among families, we see the following:
+```{r}
+dotplot(ranef(model6,condVar=TRUE))
+```
+
+## Model Assessment
+
+We can also compare the alternative models by examining the predicted LMA values as a function of the observed measurements.
+
+First let's look at the Royer et al. model ignoring taxonomy.
+
+```{r}
+#Bind fitted values to the observations in a data frame
+
+mod7fit<-as.data.frame(cbind(model7$fitted.values, royer_tax_new$log_lma, royer_tax_new$scrubbed_family))
+names(mod7fit) <- c("predlogLMA","obslogLMA", "family")
+
+ggplot(aes(x=obslogLMA, y=predlogLMA, color=royer_tax_new$scrubbed_family), data=mod7fit) +
+  geom_point() +
+  geom_abline(yintercept=0, slope=1, lty="dashed") +
+  labs(color='Family')+
+  xlab('Observed log(LMA)')+
+  ylab('Predicted log(LMA)')+
+  labs(title = 'LMA Predictions without Family Information')
+```
+
+We already know that was a pretty good model. Now let's look at the model with family specific variation in slope and intercept:
+
+```{r}
+#Bind fitted values to the observations in a data frame
+
+mod3fit<-as.data.frame(cbind(fitted(model3), royer_tax_new$log_lma, royer_tax_new$scrubbed_family))
+names(mod3fit) <- c("predlogLMA","obslogLMA", "family")
+
+ggplot(aes(x=obslogLMA, y=predlogLMA, color=royer_tax_new$scrubbed_family), data=mod3fit) +
+  geom_point() +
+  geom_abline(yintercept=0, slope=1, lty="dashed") +
+  labs(color='Family')+
+  xlab('Observed log(LMA)')+
+  ylab('Predicted log(LMA)')+
+  labs(title = 'LMA Predictions with Family variation in slope')
+```
+
+Here it looks like the predictions do hug the 1:1 line a bit more closely and the residual variation. And finally, we can look at the somewhat simpler model with only variation in intercept:
+
+```{r}
+#Bind fitted values to the observations in a data frame
+
+mod6fit<-as.data.frame(cbind(fitted(model6), royer_tax_new$log_lma, royer_tax_new$scrubbed_family))
+names(mod6fit) <- c("predlogLMA","obslogLMA", "family")
+
+ggplot(aes(x=obslogLMA, y=predlogLMA, color=royer_tax_new$scrubbed_family), data=mod6fit) +
+  geom_point() +
+  geom_abline(yintercept=0, slope=1, lty="dashed") +
+  labs(color='Family')+
+  xlab('Observed log(LMA)')+
+  ylab('Predicted log(LMA)')+
+  labs(title = 'LMA Predictions with Family variation in slope')
+```
+
+This looks pretty similar, though it maybe backs up the AIC assessment that the more complex model is incrementally better.
+
+## Fossil predictions with and without Taxonomy
+
+In order to compare our fossil data set to the living data set, we must limit the fossil data to families that are present in extant data.
+
+```{r}
+options(max.print = 1000)
+af<-royer_tax_new$scrubbed_family
+bf<-all_fossil_royer_pred$scrubbed_family
+
+##whats in all_fossil_royer_pred that isn't in #royer_tax_new
+
+missing<-bf[!(bf%in%af)]
+write.csv(missing, file="../data/missing.csv")
+
+missing<-read.csv("../data/missing.csv")
+missingdata<-subset(missing, select=-X)
+colnames(missingdata)[colnames(missingdata)=="x"]<-"scrubbed_family"
+
+tallymissing<-
+  missingdata%>%
+  group_by(scrubbed_family)%>%
+  tally()
+#print.data.frame(tallymissing)
+
+new_fossil_royer_pred2<-all_fossil_royer_pred[!all_fossil_royer_pred$scrubbed_family %in% missingdata$scrubbed_family,]
+```
+
+Then, prediction intervals are created for log(LMA) in new_fossil_royer_pred2 based on model 3. The dataset contains observations for expected LMA from the taxonomy free model, but this gives prediction intervals for log LMA that give a more picture of what those values should be. 
+
+```{r}
+##Prediction Intervals 
+PI3<-predictInterval(merMod=model3, newdata=new_fossil_royer_pred2, 
+                    level=0.95, n.sims=1000,
+                    stat="median", type="linear.prediction",
+                    include.resid.var = TRUE)
+#PI
+fossilpredictions<-cbind(new_fossil_royer_pred2,PI3)
+ggplot(aes(x=log(LMA), y=fit, ymin=lwr, ymax=upr, color=new_fossil_royer_pred2$scrubbed_family), data=fossilpredictions) +
+  geom_point() +
+  geom_linerange() +
+  geom_abline(yintercept=0, slope=1, lty="dashed") +
+  labs(color='Family')+
+  xlab('Predicted log(LMA) without Family')+
+  ylab('Family specific log(LMA)')+
+  labs(title = 'Fossil LMA Predictions with Family Information')
+###save as PDF
+ggsave("PettoLMAFigure.pdf")
+```
+
+Save fossil predictions and eliminate unnecessary columns
+
+```{r}
+fossilpredictionsfinal<-fossilpredictions[-c(2, 4, 5, 6, 7, 8)]
+write.csv(fossilpredictionsfinal, file="../data/processed/PettoLMApredictionsfinal.csv")
+```
